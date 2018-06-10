@@ -1,4 +1,4 @@
-import subprocess
+import subprocess, os, sys, shutil
 from PIL import Image
 
 def getImageSize(filename):
@@ -62,37 +62,40 @@ def extendImage(image, factor):
         exH = "0x{0}".format(exHt)
         subprocess.call(["convert", image, "-gravity", "south", "-splice", exH, image])
         print("Extended {0} pixels at the bottom of image {1}".format(exHt, image))
+
     if (exWd != factor):
         exW = "{0}x0".format(exWd)
         subprocess.call(["convert", image, "-gravity", "east", "-splice", exW, image])
         print("Extended {0} pixels at the right of image {1}".format(exWd, image))
     
+
     
-def sliceImage(image, edge):
+def tileImage(filename, edge):
     """
     Slice image into tiles with meaningful naming
     and move them into Prefixed directory
     """
-    print("Slicing {0}, this may take a while...".format(image))
-    
-    prefix = image.split('.')[0]
-    extension = image.split('.')[1]
-    cmd = ["convert",
-            image,
-            "-crop",
-            "{0}x{0}".format(edge),     # 100x100
-            "-set",
-            "filename:tile",    # Imagemagick Fn that renames tiles 
-            "%[fx:page.x/{0}+1]_%[fx:page.y/{0}+1]".format(edge),
-            "{0}/{0}_%[filename:tile].{1}".format(prefix, extension)]
-    
-    subprocess.call(["rm", "-rf", prefix])
-    subprocess.call(["mkdir", prefix])
-    subprocess.call(cmd)
-    
-    print("Sliced image {0} into {1} x {1} tiles".format(image, edge))
-    
-    
+    wd, ht = getImageSize(filename)
+    img = Image.open(filename)
+    prefix = filename.split('.')[0]
+    extension = filename.split('.')[1]
+    counter = 0
+
+    shutil.rmtree(prefix)
+    os.mkdir(prefix)
+    print("Slicing image {0} into {1} x {1} pixel tiles".format(filename, edge))
+    for x in range(0, wd, edge):
+        for y in range(0, ht, edge):
+            croppedImg = img.crop((x, y, x+edge, y+edge))
+            cFilename = "{0}/{0}_{1}_{2}.{3}".format(
+                    prefix, x, y, extension
+                )
+            croppedImg.save(cFilename)
+            counter = counter + 1
+            del croppedImg
+    print("Generated {0} images in directory {1}".format(counter, prefix))
+
+
 def blendImage(baseImage):
     """
     Mask image with a color
@@ -101,8 +104,9 @@ def blendImage(baseImage):
     image1 = Image.new("RGB", size, "salmon")
     image2 = Image.open(baseImage).convert("RGB")
     blended = Image.blend(image1, image2, 0.7)
+    blended.save(baseImage)
 
-    del image1, image2
+    del image1, image2, blended
 
 
 def main():
@@ -128,9 +132,12 @@ def main():
     extendImage(imageFirefox, factor)
     
     # slice to tiles
-    sliceImage(imageChrome, factor)
-    sliceImage(imageFirefox, factor)
+    tileImage(imageChrome, factor)
+    tileImage(imageFirefox, factor)
 
+
+def test():
+    tileImage("A.png", 10)
 
 if (__name__ == "__main__"):
-    main()
+    test()
