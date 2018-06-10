@@ -1,45 +1,14 @@
 import subprocess
+from PIL import Image
 
-import struct
-import imghdr
-
-def getImageSize(fname):
-    '''
-    Determine the image type of fhandle and return its size.
-    '''
-    with open(fname, 'rb') as fhandle:
-        head = fhandle.read(24)
-        if len(head) != 24:
-            return
-        if imghdr.what(fname) == 'png':
-            check = struct.unpack('>i', head[4:8])[0]
-            if check != 0x0d0a1a0a:
-                return
-            width, height = struct.unpack('>ii', head[16:24])
-        elif imghdr.what(fname) == 'gif':
-            width, height = struct.unpack('<HH', head[6:10])
-        elif imghdr.what(fname) == 'jpeg':
-            try:
-                fhandle.seek(0) # Read 0xff next
-                size = 2
-                ftype = 0
-                while not 0xc0 <= ftype <= 0xcf:
-                    fhandle.seek(size, 1)
-                    byte = fhandle.read(1)
-                    while ord(byte) == 0xff:
-                        byte = fhandle.read(1)
-                    ftype = ord(byte)
-                    size = struct.unpack('>H', fhandle.read(2))[0] - 2
-                # We are at a SOFn block
-                fhandle.seek(1, 1)  # Skip `precision' byte.
-                height, width = struct.unpack('>HH', fhandle.read(4))
-            except Exception: #IGNORE:W0703
-                return
-        else:
-            return
-        return width, height
-    
-    
+def getImageSize(filename):
+    """
+    Get image size
+    """
+    img = Image.open(filename)
+    size = wd, ht = img.size
+    del img
+    return size
 
 def getScreenshot(browser, url, imageSize, imageName):
     """
@@ -54,8 +23,15 @@ def getScreenshot(browser, url, imageSize, imageName):
         chopFromRight(defaultName, 10)
     
     def chrome(url, imageSize):
-        windowSize = "--window-size={0},{1}".format(imageSize['width'], imageSize['height'])
-        subprocess.call(["/opt/google/chrome/chrome", "--headless", "--hide-scrollbars", windowSize, "--screenshot", url])
+        windowSize = "--window-size={0},{1}".format(
+            imageSize['width'], imageSize['height']
+        )
+        subprocess.call(["/opt/google/chrome/chrome",
+                        "--headless",
+                        "--hide-scrollbars",
+                        windowSize,
+                        "--screenshot",
+                        url])
         
     switcher = {'firefox': firefox, 'chrome': chrome}
     switcher[browser](url, imageSize)
@@ -72,17 +48,16 @@ def chopFromRight(image, pixels):
     px = "{0}x0".format(pixels)
     subprocess.call(["convert", image, "-gravity", "East", "-chop", px, image])
     print("Removed {0} pixels from the right side of image {1}".format(pixels, image))
-    
 
 
 def extendImage(image, factor):
     """
     Extend the image to be equally divisible by factor
     """
-    wd = getImageSize(image)[0]
-    ht = getImageSize(image)[1]
+    wd, ht = getImageSize(image)
     exWd = factor - (wd % factor)
     exHt = factor - (ht % factor)
+
     if (exHt != factor):
         exH = "0x{0}".format(exHt)
         subprocess.call(["convert", image, "-gravity", "south", "-splice", exH, image])
@@ -91,8 +66,6 @@ def extendImage(image, factor):
         exW = "{0}x0".format(exWd)
         subprocess.call(["convert", image, "-gravity", "east", "-splice", exW, image])
         print("Extended {0} pixels at the right of image {1}".format(exWd, image))
-    
-    
     
     
 def sliceImage(image, edge):
@@ -120,30 +93,43 @@ def sliceImage(image, edge):
     print("Sliced image {0} into {1} x {1} tiles".format(image, edge))
     
     
-    
+def blendImage(baseImage):
+    """
+    Mask image with a color
+    """
+    size = getImageSize(baseImage)
+    image1 = Image.new("RGB", size, "salmon")
+    image2 = Image.open(baseImage).convert("RGB")
+    blended = Image.blend(image1, image2, 0.7)
+
+    del image1, image2
+
+
 def main():
     print('Working....')
     
     url = "http://neon.kde.org"
     factor = 100
     imageSize = {'width': 1280}
+    imageChrome = "A.png"
+    imageFirefox = "B.png"
     
-    getScreenshot('firefox', url, imageSize, "A.png")
+    getScreenshot('firefox', url, imageSize, imageFirefox)
     
     # get viewport height from firefox image
-    imageSize['height'] = getImageSize("A.png")[1]
+    imageSize['height'] = Image.open(imageFirefox).size[1]
     
-    getScreenshot('chrome', url, imageSize, "B.png")
+    getScreenshot('chrome', url, imageSize, imageChrome)
 
     print("Resulted image size is {0} x {1}".format(imageSize['width'], imageSize['height']))
     
     # entend images to cut precisely
-    extendImage("A.png", factor)
-    extendImage("B.png", factor)
+    extendImage(imageChrome, factor)
+    extendImage(imageFirefox, factor)
     
     # slice to tiles
-    sliceImage("A.png", factor)
-    sliceImage("B.png", factor)
+    sliceImage(imageChrome, factor)
+    sliceImage(imageFirefox, factor)
 
 
 if (__name__ == "__main__"):
