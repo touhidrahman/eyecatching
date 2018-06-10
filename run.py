@@ -1,5 +1,6 @@
 import subprocess, os, sys, shutil
 from PIL import Image
+from random import randint
 
 def getImageSize(filename):
     """
@@ -81,7 +82,8 @@ def tileImage(filename, edge):
     extension = filename.split('.')[1]
     counter = 0
 
-    shutil.rmtree(prefix)
+    if (os.path.isdir(prefix)):
+        shutil.rmtree(prefix)
     os.mkdir(prefix)
     print("Slicing image {0} into {1} x {1} pixel tiles".format(filename, edge))
     for x in range(0, wd, edge):
@@ -101,13 +103,31 @@ def blendImage(baseImage):
     Mask image with a color
     """
     size = getImageSize(baseImage)
+    # prefix = baseImage.split('_')[0]
     image1 = Image.new("RGB", size, "salmon")
     image2 = Image.open(baseImage).convert("RGB")
     blended = Image.blend(image1, image2, 0.7)
+    # blended.save(prefix + "/" + baseImage)
     blended.save(baseImage)
 
     del image1, image2, blended
 
+
+def makeImageFromTiles(directory, refImage):
+    size = getImageSize(refImage)
+    canvas = Image.new("RGB", size, "white")
+    path = os.getcwd() + "/" + directory
+    print(path)
+    for filename in os.listdir(path):
+        # TODO: remove
+        if (randint(0, 1) == 1):
+            blendImage(path + "/" + filename)
+        prefix, x, yy = filename.split('_')
+        y = yy.split(".")[0]
+        img = Image.open(path + "/" + filename)
+        canvas.paste(img, (int(x), int(y)))
+        del img
+    canvas.save("output.png")
 
 def main():
     print('Working....')
@@ -128,16 +148,21 @@ def main():
     print("Resulted image size is {0} x {1}".format(imageSize['width'], imageSize['height']))
     
     # entend images to cut precisely
-    extendImage(imageChrome, factor)
-    extendImage(imageFirefox, factor)
+    # extendImage(imageChrome, factor)
+    # extendImage(imageFirefox, factor)
     
     # slice to tiles
     tileImage(imageChrome, factor)
     tileImage(imageFirefox, factor)
 
+    # join slices
+    makeImageFromTiles(imageChrome.split('.')[0], imageChrome)
+    makeImageFromTiles(imageFirefox.split('.')[0], imageFirefox)
+
 
 def test():
-    tileImage("A.png", 10)
+    # tileImage("A.png", 400)
+    makeImageFromTiles("A", "A.png")
 
 if (__name__ == "__main__"):
-    test()
+    main()
