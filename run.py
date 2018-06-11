@@ -1,6 +1,7 @@
 import subprocess, os, sys, shutil
 from PIL import Image
 from random import randint
+import imagehash
 
 def getImageSize(filename):
     """
@@ -113,27 +114,42 @@ def blendImage(baseImage):
     del image1, image2, blended
 
 
-def makeImageFromTiles(directory, refImage):
+def makeImageFromTiles(refImage, compareImage):
     size = getImageSize(refImage)
     canvas = Image.new("RGB", size, "white")
-    path = os.getcwd() + "/" + directory
-    print(path)
-    for filename in os.listdir(path):
-        # TODO: remove
-        if (randint(0, 1) == 1):
-            blendImage(path + "/" + filename)
+    dirA = refImage.split('.')[0]
+    dirB = compareImage.split('.')[0]
+    pathA = os.getcwd() + "/" + dirA
+    pathB = os.getcwd() + "/" + dirB
+
+    for filename in os.listdir(pathA):
+        filenameA = dirA + "/" + filename
+        filenameB = dirB + "/" + filename.replace(dirA, dirB)
+        # print(filenameA, filenameB)
+        # print(getHashDiff(filenameA, filenameB))
+        if (getHashDiff(filenameA, filenameB) > 30):
+            blendImage(filenameA)
         prefix, x, yy = filename.split('_')
         y = yy.split(".")[0]
-        img = Image.open(path + "/" + filename)
+        img = Image.open(filenameA)
         canvas.paste(img, (int(x), int(y)))
         del img
     canvas.save("output.png")
 
+
+def getHashDiff(image1, image2):
+    img1 = Image.open(image1)
+    img2 = Image.open(image2)
+    hash1 = imagehash.phash(img1)
+    hash2 = imagehash.phash(img2)
+    del img1, img2
+    return hash1 - hash2
+
 def main():
     print('Working....')
     
-    url = "http://neon.kde.org"
-    factor = 100
+    url = "http://angular.io"
+    factor = 10
     imageSize = {'width': 1280}
     imageChrome = "A.png"
     imageFirefox = "B.png"
@@ -148,21 +164,22 @@ def main():
     print("Resulted image size is {0} x {1}".format(imageSize['width'], imageSize['height']))
     
     # entend images to cut precisely
-    # extendImage(imageChrome, factor)
-    # extendImage(imageFirefox, factor)
+    extendImage(imageChrome, factor)
+    extendImage(imageFirefox, factor)
     
     # slice to tiles
     tileImage(imageChrome, factor)
     tileImage(imageFirefox, factor)
 
     # join slices
-    makeImageFromTiles(imageChrome.split('.')[0], imageChrome)
-    makeImageFromTiles(imageFirefox.split('.')[0], imageFirefox)
+    makeImageFromTiles(imageChrome, imageFirefox)
 
 
 def test():
     # tileImage("A.png", 400)
-    makeImageFromTiles("A", "A.png")
+    makeImageFromTiles("A.png", "B.png")
+
 
 if (__name__ == "__main__"):
     main()
+    # test()
