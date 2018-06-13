@@ -1,6 +1,5 @@
 import subprocess, os, sys, shutil
 from PIL import Image
-from random import randint
 import imagehash
 
 def getImageSize(filename):
@@ -99,22 +98,20 @@ def tileImage(filename, edge):
     print("Generated {0} images in directory {1}".format(counter, prefix))
 
 
-def blendImage(baseImage):
+def blendImage(baseImage, opacity):
     """
     Mask image with a color
     """
     size = getImageSize(baseImage)
-    # prefix = baseImage.split('_')[0]
     image1 = Image.new("RGB", size, "salmon")
     image2 = Image.open(baseImage).convert("RGB")
-    blended = Image.blend(image1, image2, 0.7)
-    # blended.save(prefix + "/" + baseImage)
+    blended = Image.blend(image1, image2, opacity)
     blended.save(baseImage)
 
     del image1, image2, blended
 
 
-def makeImageFromTiles(refImage, compareImage):
+def remakeImage(refImage, compareImage):
     size = getImageSize(refImage)
     canvas = Image.new("RGB", size, "white")
     dirA = refImage.split('.')[0]
@@ -127,23 +124,38 @@ def makeImageFromTiles(refImage, compareImage):
         filenameB = dirB + "/" + filename.replace(dirA, dirB)
         # print(filenameA, filenameB)
         # print(getHashDiff(filenameA, filenameB))
-        if (getHashDiff(filenameA, filenameB) > 30):
-            blendImage(filenameA)
+        hashDiff = getHashDiff(filenameA, filenameB)
+
+        if (hashDiff <= 30):
+            blendImage(filenameA, 0.1)
+        elif (hashDiff <= 40):
+            blendImage(filenameA, 0.2)
+        elif (hashDiff <= 50):
+            blendImage(filenameA, 0.3)
+        elif (hashDiff <= 60):
+            blendImage(filenameA, 0.4)
+        elif (hashDiff <= 70):
+            blendImage(filenameA, 0.5)
+        else:
+            blendImage(filenameA, 0.6)
+
         prefix, x, yy = filename.split('_')
         y = yy.split(".")[0]
         img = Image.open(filenameA)
         canvas.paste(img, (int(x), int(y)))
         del img
+
     canvas.save("output.png")
 
 
 def getHashDiff(image1, image2):
     img1 = Image.open(image1)
     img2 = Image.open(image2)
-    hash1 = imagehash.phash(img1)
-    hash2 = imagehash.phash(img2)
+    hash1 = imagehash.average_hash(img1)
+    hash2 = imagehash.average_hash(img2)
+    print((hash1, hash2))
     del img1, img2
-    return hash1 - hash2
+    return abs(hash1 - hash2)
 
 def main():
     print('Working....')
@@ -172,14 +184,14 @@ def main():
     tileImage(imageFirefox, factor)
 
     # join slices
-    makeImageFromTiles(imageChrome, imageFirefox)
+    remakeImage(imageChrome, imageFirefox)
 
 
 def test():
     # tileImage("A.png", 400)
-    makeImageFromTiles("A.png", "B.png")
+    remakeImage("A.png", "B.png")
 
 
 if (__name__ == "__main__"):
-    main()
-    # test()
+    # main()
+    test()
