@@ -44,7 +44,8 @@ def getScreenshot(browser, url, imageSize, imageName):
 def chopFromRight(image, pixels):
     """
     Subtract given pixels from right side of the image 
-    and replace the original file
+    and replace the original file.
+    Used to remove scrollbar pixels.
     """
     px = "{0}x0".format(pixels)
     subprocess.call(["convert", image, "-gravity", "East", "-chop", px, image])
@@ -111,6 +112,20 @@ def blendImage(baseImage, opacity):
     del image1, image2, blended
 
 
+def compareTiles(basedir, comparedir):
+    """
+    Compares tiles and marks different tiles in comparing directory
+    """
+    pathA = os.getcwd() + "/" + basedir
+    pathB = os.getcwd() + "/" + comparedir
+
+    for tile in os.listdir(pathA):
+        filenameA = basedir + "/" + tile
+        filenameB = comparedir + "/" + tile.replace(basedir, comparedir)
+        hashDiff = getHashDiff(filenameA, filenameB)
+    
+
+
 def remakeImage(refImage, compareImage):
     size = getImageSize(refImage)
     canvas = Image.new("RGB", size, "white")
@@ -147,6 +162,14 @@ def remakeImage(refImage, compareImage):
 
     canvas.save("output.png")
 
+
+def makeImageFromTiles(dirname):
+    size = getImageSize(dirname + '.png')
+    canvas = Image.new("RGB", size, "white")
+    path = os.getcwd() + '/' + dirname
+
+    for filename in os.listdir(path):
+        tilename = dirname + '/' + filename
 
 def getHashDiff(image1, image2):
     img1 = Image.open(image1)
