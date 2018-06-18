@@ -21,7 +21,10 @@ def get_screenshot(browser, url, imageSize, imageName):
 
     def firefox(url, image_size):
         windowSize = "--window-size={0}".format(image_size['width'] + 10)
-        subprocess.call(["firefox", "-screenshot", windowSize, url])
+        subprocess.call(["firefox",
+                        "-screenshot",
+                        windowSize,
+                        url])
         # remove the scrolbar 
         remove_pixels_right(default_name, 10)
 
@@ -69,12 +72,23 @@ def extend_image(image: str, factor: int):
 
     if ex_ht != factor:
         ex_ht_str = "0x{0}".format(ex_ht)
-        subprocess.call(["convert", image, "-gravity", "south", "-splice", ex_ht_str, image])
+        subprocess.call(["convert",
+                        image,
+                        "-gravity", "south",
+                        "-splice",
+                        ex_ht_str,
+                        image])
         print("Extended {0} pixels at the bottom of image {1}".format(ex_ht, image))
 
     if ex_wd != factor:
         ex_wd_str = "{0}x0".format(ex_wd)
-        subprocess.call(["convert", image, "-gravity", "east", "-splice", ex_wd_str, image])
+        subprocess.call(["convert",
+                        image,
+                        "-gravity",
+                        "east",
+                        "-splice",
+                        ex_wd_str,
+                        image])
         print("Extended {0} pixels at the right of image {1}".format(ex_wd, image))
 
 
@@ -105,6 +119,7 @@ def tile_image(filename: str, edge: int):
             cropped_img.save(cropped_filename)
             counter = counter + 1
             del cropped_img
+
     print("Generated {0} images in directory {1}".format(counter, prefix))
 
 
@@ -120,7 +135,7 @@ def mark_image(image: str, opacity: float):
     del img_bottom, img_top, blended
 
 
-def compare_tiles(ref_dir, compare_dir):
+def compare_tiles(ref_dir, compare_dir, algorithm):
     """
     Compares tiles and marks different tiles in comparing directory
     """
@@ -131,19 +146,17 @@ def compare_tiles(ref_dir, compare_dir):
     for tile in os.listdir(path):
         tile_ref_img = ref_dir + "/" + tile.replace(compare_dir, ref_dir)
         tile_com_img = compare_dir + "/" + tile
-        hash_diff = get_hash_diff(tile_ref_img, tile_com_img)
-
-        # print((tile_ref_img, tile_com_img))
+        hash_diff = get_hash_diff(tile_ref_img, tile_com_img, algorithm)
 
         if hash_diff >= 30 and hash_diff < 39:
             mark_image(tile_com_img, 0.1)
-        elif hash_diff >= 40 and hash_diff < 49:
+        if hash_diff >= 40 and hash_diff < 49:
             mark_image(tile_com_img, 0.2)
-        elif hash_diff >= 50 and hash_diff < 59:
+        if hash_diff >= 50 and hash_diff < 59:
             mark_image(tile_com_img, 0.3)
-        elif hash_diff >= 60 and hash_diff < 69:
+        if hash_diff >= 60 and hash_diff < 69:
             mark_image(tile_com_img, 0.4)
-        else:
+        if hash_diff >= 70:
             mark_image(tile_com_img, 0.5)
 
 
@@ -155,14 +168,13 @@ def remake_image(ref_img, compare_img):
     dir_com = compare_img.split('.')[0]
     path = os.getcwd() + "/" + dir_com
 
-    compare_tiles(dir_ref, dir_com)
+    compare_tiles(dir_ref, dir_com, 'avg')
 
     for filename in os.listdir(path):
         img_tile = dir_com + "/" + filename
         prefix, x, yy = filename.split('_')
         y = yy.split(".")[0]
         img = Image.open(img_tile)
-        # print(filename)
         canvas.paste(img, (int(x), int(y)))
         del img
 
@@ -171,11 +183,16 @@ def remake_image(ref_img, compare_img):
     print("Resulted file saved as {0}".format(saving_name))
 
 
-def get_hash_diff(image1, image2):
+def get_hash_diff(image1, image2, algorithm):
+    switcher = {
+        'avg': imagehash.average_hash,
+        'phash': imagehash.phash,
+        'dhash': imagehash.dhash
+    }
     img1 = Image.open(image1)
     img2 = Image.open(image2)
-    hash1 = imagehash.dhash(img1)
-    hash2 = imagehash.dhash(img2)
+    hash1 = switcher[algorithm](img1)
+    hash2 = switcher[algorithm](img2)
     del img1, img2
     return abs(hash1 - hash2)
 
@@ -184,7 +201,7 @@ def main():
     print('Working....')
 
     url = "http://angular.io"
-    factor = 20
+    factor = 10
     image_size = {'width': 1280}
     image_chrome = "A.png"
     image_firefox = "B.png"
