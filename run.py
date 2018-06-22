@@ -20,6 +20,7 @@ def get_screenshot(browser, url, imageSize, imageName):
     default_name = "screenshot.png"
 
     def firefox(url, image_size):
+        # add 10px for scrollbar
         windowSize = "--window-size={0}".format(image_size['width'] + 10)
         subprocess.call(["firefox",
                         "-screenshot",
@@ -29,6 +30,7 @@ def get_screenshot(browser, url, imageSize, imageName):
         remove_pixels_right(default_name, 10)
 
     def chrome(url, image_size):
+        # chrome expects full viewport size
         window_size = "--window-size={0},{1}".format(
             image_size['width'], image_size['height']
         )
@@ -95,7 +97,7 @@ def extend_image(image: str, factor: int):
 def tile_image(filename: str, edge: int):
     """
     Slice image into tiles with meaningful naming
-    and move them into Prefixed directory
+    and move them into same name directory
     """
     wd, ht = get_image_size(filename)
     img = Image.open(filename)
@@ -129,7 +131,7 @@ def mark_image(image: str, opacity: float):
     """
     img_bottom = Image.open(image).convert("RGB")
     img_top = Image.new("RGB", img_bottom.size, "salmon")
-    blended = Image.blend(img_top, img_bottom, opacity)
+    blended = Image.blend(img_bottom, img_top, opacity)
     blended.save(image)
 
     del img_bottom, img_top, blended
@@ -141,23 +143,25 @@ def compare_tiles(ref_dir, compare_dir, algorithm):
     """
     path = os.getcwd() + "/" + compare_dir
 
-    # clean up directory, only image files should exist
-
     for tile in os.listdir(path):
         tile_ref_img = ref_dir + "/" + tile.replace(compare_dir, ref_dir)
         tile_com_img = compare_dir + "/" + tile
         hash_diff = get_hash_diff(tile_ref_img, tile_com_img, algorithm)
 
+        opacity = 0
         if hash_diff >= 30 and hash_diff < 39:
-            mark_image(tile_com_img, 0.1)
+            opacity = 0.2
         if hash_diff >= 40 and hash_diff < 49:
-            mark_image(tile_com_img, 0.2)
+            opacity = 0.3
         if hash_diff >= 50 and hash_diff < 59:
-            mark_image(tile_com_img, 0.3)
+            opacity = 0.4
         if hash_diff >= 60 and hash_diff < 69:
-            mark_image(tile_com_img, 0.4)
+            opacity = 0.5
         if hash_diff >= 70:
-            mark_image(tile_com_img, 0.5)
+            opacity = 0.6
+
+        if opacity != 0:
+            mark_image(tile_com_img, opacity)
 
 
 def remake_image(ref_img, compare_img):
@@ -200,11 +204,11 @@ def get_hash_diff(image1, image2, algorithm):
 def main():
     print('Working....')
 
-    url = "http://angular.io"
+    url = "http://neon.kde.org"
     factor = 10
     image_size = {'width': 1280}
-    image_chrome = "A.png"
-    image_firefox = "B.png"
+    image_chrome = "chrome.png"
+    image_firefox = "firefox.png"
 
     get_screenshot('firefox', url, image_size, image_firefox)
 
