@@ -6,6 +6,9 @@ setup(
     py_modules=['eyecatching'],
     install_requires=[
         'Click',
+        'Pillow',
+        'Numpy',
+        'Scipy',
     ],
     entry_points='''
         [console_scripts]

@@ -18,9 +18,7 @@ Only for first time:
 
 `. venv/bin/activate`
 
-`pip install numpy`
-
-`pip install pillow`
+`pip install --editable .`
 
 ## Run eyecatching
 
