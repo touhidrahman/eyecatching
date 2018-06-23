@@ -3,6 +3,69 @@ from PIL import Image
 import imagehash
 import click
 
+@click.command()
+@click.argument('url', default='http://neon.kde.org')
+@click.option('--factor', default=20,
+            help="Tile block size, px. (Default: 20)") # TODO: add warning and allow min 8
+@click.option('--viewport-width', default=1280,
+            help="Viewport width, px. (Default: 1280)")
+@click.option('--algorithm', default="avg",
+            help="Perceptual hashing algorithm to be used.\n(Default: avg) Available: avg, phash, dhash")
+@click.option('--output', help="Name for the output file.")
+@click.option('--reset', is_flag=True, help="Remove all previous outputs.")
+def main(
+    url,
+    factor,
+    viewport_width,
+    algorithm,
+    output,
+    reset):
+    """
+    Tests the frontend of a website/webapp by comparing screenshots
+    captured from different browsers (at present Chrome and Firefox).
+
+    $ eyecatching <URL> [--option value]
+
+    For example:
+
+    $ eyecatching http://example.com
+
+    """
+
+    print('Working....')
+
+    image_size = {'width': viewport_width}
+    image_chrome = "chrome.png"
+    image_firefox = "firefox.png"
+
+    # On reset command remove all previous files and exit
+    if reset:
+        remove_old_files([image_chrome, image_firefox])
+        exit()
+
+    get_screenshot('firefox', url, image_size, image_firefox)
+
+    # get viewport height from firefox image
+    image_size['height'] = Image.open(image_firefox).size[1]
+
+    get_screenshot('chrome', url, image_size, image_chrome)
+
+    print("Resulted image size is {0} x {1}".format(image_size['width'], image_size['height']))
+
+    # extend images to cut precisely
+    extend_image(image_chrome, factor)
+    extend_image(image_firefox, factor)
+
+    # slice to tiles
+    tile_image(image_chrome, factor)
+    tile_image(image_firefox, factor)
+
+    # join slices
+    remake_image(image_chrome, image_firefox, algorithm)
+
+    print("Done.")
+
+
 def get_image_size(filename):
     """
     Get image size
@@ -13,7 +76,7 @@ def get_image_size(filename):
     return size
 
 
-def get_screenshot(browser, url, imageSize, imageName):
+def get_screenshot(browser, url, image_size, image_name):
     """
     Get screenshot of the given webpage
     """
@@ -21,10 +84,10 @@ def get_screenshot(browser, url, imageSize, imageName):
 
     def firefox(url, image_size):
         # add 10px for scrollbar
-        windowSize = "--window-size={0}".format(image_size['width'] + 10)
+        window_size = "--window-size={0}".format(image_size['width'] + 10)
         subprocess.call(["firefox",
                         "-screenshot",
-                        windowSize,
+                        window_size,
                         url])
         # remove the scrolbar 
         remove_pixels_right(default_name, 10)
@@ -45,13 +108,13 @@ def get_screenshot(browser, url, imageSize, imageName):
         'firefox': firefox,
         'chrome': chrome
     }
-    switcher[browser](url, imageSize)
+    switcher[browser](url, image_size)
     # rename picture
-    subprocess.call(["mv", default_name, imageName])
-    print("Saved screenshot from {0} with name {1}".format(browser, imageName))
+    subprocess.call(["mv", default_name, image_name])
+    print("Saved screenshot from {0} with name {1}".format(browser, image_name))
 
 
-def remove_pixels_right(image, pixels):
+def remove_pixels_right(image: str, pixels: int):
     """
     Subtract given pixels from right side of the image 
     and replace the original file.
@@ -150,21 +213,21 @@ def compare_tiles(ref_dir, compare_dir, algorithm):
 
         opacity = 0
         if hash_diff >= 30 and hash_diff < 39:
-            opacity = 0.2
-        if hash_diff >= 40 and hash_diff < 49:
             opacity = 0.3
-        if hash_diff >= 50 and hash_diff < 59:
+        if hash_diff >= 40 and hash_diff < 49:
             opacity = 0.4
-        if hash_diff >= 60 and hash_diff < 69:
+        if hash_diff >= 50 and hash_diff < 59:
             opacity = 0.5
-        if hash_diff >= 70:
+        if hash_diff >= 60 and hash_diff < 69:
             opacity = 0.6
+        if hash_diff >= 70:
+            opacity = 0.7
 
         if opacity != 0:
             mark_image(tile_com_img, opacity)
 
 
-def remake_image(ref_img, compare_img):
+def remake_image(ref_img, compare_img, algorithm):
     print("Marking visual differences from reference image...")
     size = get_image_size(ref_img)
     canvas = Image.new("RGB", size, "white")
@@ -172,7 +235,7 @@ def remake_image(ref_img, compare_img):
     dir_com = compare_img.split('.')[0]
     path = os.getcwd() + "/" + dir_com
 
-    compare_tiles(dir_ref, dir_com, 'avg')
+    compare_tiles(dir_ref, dir_com, algorithm)
 
     for filename in os.listdir(path):
         img_tile = dir_com + "/" + filename
@@ -200,48 +263,15 @@ def get_hash_diff(image1, image2, algorithm):
     del img1, img2
     return abs(hash1 - hash2)
 
-@click.command()
-@click.option('--url', default='http://neon.kde.org', help="Fully qualified URL of the website.")
-@click.option('--factor', default=20, help="Edge size of the tile block in pixels.") # TODO: add warning and allow min 8
-@click.option('--viewport-width', default=1280, help="Viewport width in pixels.")
-def main(url, factor, viewport_width):
+
+def remove_old_files(images):
     """
-    Tests the frontend of a website/webapp by comparing screenshots
-    captured from different browsers (at present Chrome and Firefox)
+    Remove old output files
     """
-
-    print('Working....')
-
-    image_size = {'width': viewport_width}
-    image_chrome = "chrome.png"
-    image_firefox = "firefox.png"
-
-    get_screenshot('firefox', url, image_size, image_firefox)
-
-    # get viewport height from firefox image
-    image_size['height'] = Image.open(image_firefox).size[1]
-
-    get_screenshot('chrome', url, image_size, image_chrome)
-
-    print("Resulted image size is {0} x {1}".format(image_size['width'], image_size['height']))
-
-    # extend images to cut precisely
-    extend_image(image_chrome, factor)
-    extend_image(image_firefox, factor)
-
-    # slice to tiles
-    tile_image(image_chrome, factor)
-    tile_image(image_firefox, factor)
-
-    # join slices
-    remake_image(image_chrome, image_firefox)
-
-    print("Done.")
-
-
-def test():
-    # tileImage("A.png", 400)
-    remake_image("A.png", "B.png")
+    for image in images:
+        shutil.rmtree(image.split('.')[0])
+        os.remove(image)
+    print('All previous outputs removed.')
 
 
 # if __name__ == "__main__":
