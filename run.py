@@ -1,7 +1,7 @@
 import subprocess, os, sys, shutil
 from PIL import Image
 import imagehash
-
+import click
 
 def get_image_size(filename):
     """
@@ -200,13 +200,19 @@ def get_hash_diff(image1, image2, algorithm):
     del img1, img2
     return abs(hash1 - hash2)
 
+@click.command()
+@click.option('--url', default='http://neon.kde.org', help="Fully qualified URL of the website.")
+@click.option('--factor', default=20, help="Edge size of the tile block in pixels.") # TODO: add warning and allow min 8
+@click.option('--viewport-width', default=1280, help="Viewport width in pixels.")
+def main(url, factor, viewport_width):
+    """
+    Tests the frontend of a website/webapp by comparing screenshots
+    captured from different browsers (at present Chrome and Firefox)
+    """
 
-def main():
     print('Working....')
 
-    url = "http://neon.kde.org"
-    factor = 10
-    image_size = {'width': 1280}
+    image_size = {'width': viewport_width}
     image_chrome = "chrome.png"
     image_firefox = "firefox.png"
 
@@ -238,6 +244,6 @@ def test():
     remake_image("A.png", "B.png")
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
     # test()
