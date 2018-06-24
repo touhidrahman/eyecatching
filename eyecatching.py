@@ -6,13 +6,13 @@ import click
 @click.command()
 @click.argument('url')
 @click.option('--factor', default=20,
-            help="Tile block size, px. \n(Default: 20)") # TODO: add warning and allow min 8
+            help="Tile block size, px. \n(Default: 20)")
 @click.option('--viewport-width', default=1280,
-            help="Viewport width, px. (Default: 1280)")
+            help="Viewport width, px. \n(Default: 1280)")
 @click.option('--algorithm', default="avg",
-            help="Perceptual hashing algorithm to be used.\n(Default: avg) Available: avg, phash, dhash")
+            help="Perceptual hashing algorithm to be used. \n(Default: avg) \nAvailable: avg, phash, dhash")
 @click.option('--ref-browser', default="chrome",
-            help="Reference browser (Default: chrome) Available: chrome, firefox")
+            help="Reference browser \n(Default: chrome) \nAvailable: chrome, firefox")
 @click.option('--output', help="Name for the output file.")
 @click.option('--reset', is_flag=True, help="Remove all previous outputs.")
 def main(
@@ -34,6 +34,10 @@ def main(
     $ eyecatching http://example.com
 
     """
+
+    if factor < 8:
+        print("Factor is too small! Please use a value above 8")
+        exit()
 
     print('Working....')
 
