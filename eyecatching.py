@@ -4,13 +4,15 @@ import imagehash
 import click
 
 @click.command()
-@click.argument('url', default='http://neon.kde.org')
+@click.argument('url')
 @click.option('--factor', default=20,
-            help="Tile block size, px. (Default: 20)") # TODO: add warning and allow min 8
+            help="Tile block size, px. \n(Default: 20)") # TODO: add warning and allow min 8
 @click.option('--viewport-width', default=1280,
             help="Viewport width, px. (Default: 1280)")
 @click.option('--algorithm', default="avg",
             help="Perceptual hashing algorithm to be used.\n(Default: avg) Available: avg, phash, dhash")
+@click.option('--ref-browser', default="chrome",
+            help="Reference browser (Default: chrome) Available: chrome, firefox")
 @click.option('--output', help="Name for the output file.")
 @click.option('--reset', is_flag=True, help="Remove all previous outputs.")
 def main(
@@ -18,6 +20,7 @@ def main(
     factor,
     viewport_width,
     algorithm,
+    ref_browser,
     output,
     reset):
     """
@@ -60,8 +63,15 @@ def main(
     tile_image(image_chrome, factor)
     tile_image(image_firefox, factor)
 
+    if ref_browser == "chrome":
+        ref_img = image_chrome
+        comp_img = image_firefox
+    if ref_browser == "firefox":
+        ref_img = image_firefox
+        comp_img = image_chrome
+
     # join slices
-    remake_image(image_chrome, image_firefox, algorithm)
+    remake_image(ref_img, comp_img, algorithm)
 
     print("Done.")
 
@@ -110,7 +120,7 @@ def get_screenshot(browser, url, image_size, image_name):
     }
     switcher[browser](url, image_size)
     # rename picture
-    subprocess.call(["mv", default_name, image_name])
+    os.rename(default_name, image_name)
     print("Saved screenshot from {0} with name {1}".format(browser, image_name))
 
 
@@ -251,6 +261,9 @@ def remake_image(ref_img, compare_img, algorithm):
 
 
 def get_hash_diff(image1, image2, algorithm):
+    """
+    Get the hamming distance of two images
+    """
     switcher = {
         'avg': imagehash.average_hash,
         'phash': imagehash.phash,
@@ -271,9 +284,9 @@ def remove_old_files(images):
     for image in images:
         shutil.rmtree(image.split('.')[0])
         os.remove(image)
+
+    for filename in os.listdir("."):
+        if filename.startswith("output"):
+            os.remove(filename)
+
     print('All previous outputs removed.')
-
-
-# if __name__ == "__main__":
-#     main()
-    # test()
