@@ -2,9 +2,10 @@ import subprocess, os, sys, shutil
 from PIL import Image
 import imagehash
 import click
+from urllib.parse import urlparse
 
 @click.command()
-@click.argument('url')
+@click.argument('url', default="")
 @click.option('--factor', default=20,
             help="Tile block size, px. \n(Default: 20)")
 @click.option('--viewport-width', default=1280,
@@ -34,6 +35,14 @@ def main(
     $ eyecatching http://example.com
 
     """
+
+    if url == "":
+        print("Argument <URL> missing! Please input a valid URL.")
+        exit()
+
+    if is_valid_url(url) == False:
+        print("Invalid URL! Please input a valid URL.")
+        exit()
 
     if factor < 8:
         print("Factor is too small! Please use a value above 8")
@@ -78,7 +87,6 @@ def main(
     remake_image(ref_img, comp_img, algorithm)
 
     print("Done.")
-
 
 def get_image_size(filename):
     """
@@ -237,6 +245,8 @@ def compare_tiles(ref_dir, compare_dir, algorithm):
         if hash_diff >= 70:
             opacity = 0.7
 
+        # opacity = hash_diff / 100
+
         if opacity != 0:
             mark_image(tile_com_img, opacity)
 
@@ -294,3 +304,11 @@ def remove_old_files(images):
             os.remove(filename)
 
     print('All previous outputs removed.')
+
+
+def is_valid_url(url):
+    try:
+        result = urlparse(url)
+        return result.scheme and result.netloc and result.path
+    except:
+        return False
