@@ -93,7 +93,7 @@ def get_image_size(filename):
     Get image size
     """
     img = Image.open(filename)
-    size = img.size
+    size = img.size     # (wd, ht)
     del img
     return size
 
@@ -312,3 +312,38 @@ def is_valid_url(url):
         return result.scheme and result.netloc and result.path
     except:
         return False
+
+
+def dynamic():
+    # divide the pic off large axis
+    # check hash 
+    # if similar, discard. otherwise continue
+    image_size = {'width': 1280}
+    image_chrome = "chrome.png"
+    image_firefox = "firefox.png"
+
+
+
+
+def divide_image(image):
+    """
+    Divides an image into two along the large axis
+    and return the files as PIL object as tuple
+    """
+    img = Image.open(image)
+    wd, ht = img.size
+
+    if (wd % 2 == 0) and (ht % 2 == 0):
+        if wd > ht:
+            c1_img = img.crop((0, 0, int(wd/2), ht))
+            c2_img = img.crop((int(wd/2), 0, wd, ht))
+        if ht > wd:
+            c1_img = img.crop((0, 0, wd, int(ht/2)))
+            c2_img = img.crop((0, int(wd/2), wd, ht))
+
+        return (c1_img, c2_img)
+    else:
+        print("Image size is not even, cannot divide. Exiting...")
+        return
+
+
