@@ -1,8 +1,120 @@
-import subprocess, os, sys, shutil
-from PIL import Image
+import subprocess
+import os
+import sys
+import shutil
 import imagehash
 import click
+from PIL import Image
 from urllib.parse import urlparse
+
+class MetaImage:
+
+    def __init__(self, imagename):
+        self.imagename = imagename
+        namebits = self.imagename.split("_") # A_0_0_100_100_.png
+        self.prefix = self.get_prefix()
+        if len(namebits) == 1:
+            self.path = os.getcwd()
+            self.image = Image.open(imagename)
+        else:
+            self.path = "{0}/{1}".format(
+                os.getcwd(), self.prefix
+            )
+            self.image = Image.open(self.path + '/' + self.imagename)
+
+        self.size = self.image.size
+        self.width = self.image.size[0]
+        self.height = self.image.size[1]
+        self.ext = self.imagename.split(".")[1]
+        if len(namebits) > 1:
+            self.left       = int(namebits[1])
+            self.top        = int(namebits[2])
+            self.right      = int(namebits[3])
+            self.bottom     = int(namebits[4])
+        else:
+            self.left = 0
+            self.top = 0
+            self.right = self.width
+            self.bottom = self.height
+
+    def get_prefix(self):
+        raw_prefix = self.imagename.split(".")[0]
+        prefix = raw_prefix.split("_")[0]
+        return prefix
+    
+    def get_size(self):
+        return self.image.size
+
+    def get_coordinates(self):
+        return (
+            self.left, self.top,
+            self.right, self.bottom
+        )
+
+    def left_half(self):
+        return (
+            self.left, self.top,
+            int(self.width/2), self.height
+        )
+
+    def right_half(self):
+        return (
+            int(self.width/2), self.top,
+            self.width, self.height
+        )
+
+    def top_half(self):
+        return (
+            self.left, self.top,
+            self.width, int(self.height/2)
+        )
+
+    def bottom_half(self):
+        return (
+            self.left, int(self.height/2), 
+            self.width, self.height
+        )
+
+    def is_landscape(self):
+        return self.width > self.height
+
+    def is_potrait(self):
+        return self.height > self.width
+
+    def first_half(self):
+        if self.is_landscape():
+            return self.left_half()
+        if self.is_potrait():
+            return self.top_half()
+
+    def second_half(self):
+        if self.is_landscape():
+            return self.right_half()
+        if self.is_potrait():
+            return self.bottom_half()
+
+    def format_name(self):
+        return "{0}_{1}_{2}_{3}_{4}_.{5}".format(
+            self.prefix, 
+            self.top, 
+            self.left,
+            self.bottom, 
+            self.right, 
+            self.ext
+        )
+
+    def format_name_with_dir(self):
+        return "{0}/{1}".format(
+            self.prefix, self.format_name()
+        )
+
+    def save(self):
+        name_with_dir = "{0}/{1}".format(
+            self.prefix, self.format_name()
+        )
+        self.image.save(name_with_dir)
+
+
 
 @click.command()
 @click.argument('url', default="")
@@ -161,7 +273,8 @@ def extend_image(image: str, factor: int):
         ex_ht_str = "0x{0}".format(ex_ht)
         subprocess.call(["convert",
                         image,
-                        "-gravity", "south",
+                        "-gravity",
+                        "south",
                         "-splice",
                         ex_ht_str,
                         image])
@@ -184,30 +297,33 @@ def tile_image(filename: str, edge: int):
     Slice image into tiles with meaningful naming
     and move them into same name directory
     """
-    wd, ht = get_image_size(filename)
-    img = Image.open(filename)
-    prefix = filename.split('.')[0]
-    extension = filename.split('.')[1]
     counter = 0
+    img = MetaImage(filename)
 
-    if os.path.isdir(prefix):
-        shutil.rmtree(prefix)
+    if os.path.isdir(img.prefix):
+        shutil.rmtree(img.prefix)
 
-    os.mkdir(prefix)
+    os.mkdir(img.prefix)
 
     print("Slicing image {0} into {1} x {1} pixel tiles".format(filename, edge))
 
-    for x in range(0, wd, edge):
-        for y in range(0, ht, edge):
-            cropped_img = img.crop((x, y, x + edge, y + edge))
-            cropped_filename = "{0}/{0}_{1}_{2}.{3}".format(
-                prefix, x, y, extension
-            )  # this format helps saving inside subdirectory
+    for x in range(0, img.width, edge):
+        for y in range(0, img.height, edge):
+            coords = (x, y, x + edge, y + edge)
+            cropped_img = img.image.crop(coords)
+            cropped_filename = "{0}/{0}_{1}_{2}_{3}_{4}_.{5}".format(
+                img.prefix,
+                x,
+                y,
+                x + edge,
+                y + edge,
+                img.ext
+            )
             cropped_img.save(cropped_filename)
             counter = counter + 1
             del cropped_img
 
-    print("Generated {0} images in directory {1}".format(counter, prefix))
+    print("Generated {0} images in directory {1}".format(counter, img.prefix))
 
 
 def mark_image(image: str, opacity: float):
@@ -253,21 +369,19 @@ def compare_tiles(ref_dir, compare_dir, algorithm):
 
 def remake_image(ref_img, compare_img, algorithm):
     print("Marking visual differences from reference image...")
-    size = get_image_size(ref_img)
-    canvas = Image.new("RGB", size, "white")
-    dir_ref = ref_img.split('.')[0]
-    dir_com = compare_img.split('.')[0]
+    r_img = MetaImage(ref_img)
+    c_img = MetaImage(compare_img)
+    canvas = Image.new("RGB", c_img.size, "white")
+    dir_ref = r_img.prefix
+    dir_com = c_img.prefix
     path = os.getcwd() + "/" + dir_com
 
     compare_tiles(dir_ref, dir_com, algorithm)
 
     for filename in os.listdir(path):
-        img_tile = dir_com + "/" + filename
-        prefix, x, yy = filename.split('_')
-        y = yy.split(".")[0]
-        img = Image.open(img_tile)
-        canvas.paste(img, (int(x), int(y)))
-        del img
+        slice = MetaImage(filename)
+        canvas.paste(slice.image, slice.get_coordinates())
+        del slice
 
     saving_name = "output" + "_" + compare_img
     canvas.save(saving_name)
@@ -314,36 +428,13 @@ def is_valid_url(url):
         return False
 
 
-def dynamic():
-    # divide the pic off large axis
-    # check hash 
-    # if similar, discard. otherwise continue
-    image_size = {'width': 1280}
-    image_chrome = "chrome.png"
-    image_firefox = "firefox.png"
+# def dynamic():
+#     # divide the pic off large axis
+#     # check hash 
+#     # if similar, discard. otherwise continue
+#     image_size = {'width': 1280}
+#     image_chrome = "chrome.png"
+#     image_firefox = "firefox.png"
 
-
-
-
-def divide_image(image):
-    """
-    Divides an image into two along the large axis
-    and return the files as PIL object as tuple
-    """
-    img = Image.open(image)
-    wd, ht = img.size
-
-    if (wd % 2 == 0) and (ht % 2 == 0):
-        if wd > ht:
-            c1_img = img.crop((0, 0, int(wd/2), ht))
-            c2_img = img.crop((int(wd/2), 0, wd, ht))
-        if ht > wd:
-            c1_img = img.crop((0, 0, wd, int(ht/2)))
-            c2_img = img.crop((0, int(wd/2), wd, ht))
-
-        return (c1_img, c2_img)
-    else:
-        print("Image size is not even, cannot divide. Exiting...")
-        return
 
 

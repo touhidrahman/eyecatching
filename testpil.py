@@ -3,34 +3,110 @@ import subprocess, os, sys, shutil
 from PIL import Image
 import imagehash
 
-class MetaImage:
     def __init__(self, imagename):
-        self.image = Image.open(imagename)
         self.imagename = imagename
+        namebits = self.imagename.split("_") # A_0_0_100_100_.png
+        self.prefix = self.get_prefix()
+        if len(namebits) == 1:
+            self.path = os.getcwd()
+            self.image = Image.open(imagename)
+        else:
+            self.path = "{0}/{1}".format(
+                os.getcwd(), self.prefix
+            )
+            self.image = Image.open(self.path + '/' + self.imagename)
+
         self.size = self.image.size
         self.width = self.image.size[0]
         self.height = self.image.size[1]
-        # A_0_0_100_100_.png
-        namebits = self.imagename.split("_")
+        self.ext = self.imagename.split(".")[1]
         if len(namebits) > 1:
-            self.top = namebits[1]
-            self.left = namebits[2]
-            self.bottom = namebits[3]
-            self.right = namebits[4]
+            self.left       = int(namebits[1])
+            self.top        = int(namebits[2])
+            self.right      = int(namebits[3])
+            self.bottom     = int(namebits[4])
         else:
-            self.top = 0
             self.left = 0
-            self.bottom = self.height
+            self.top = 0
             self.right = self.width
+            self.bottom = self.height
+
+    def get_prefix(self):
+        raw_prefix = self.imagename.split(".")[0]
+        prefix = raw_prefix.split("_")[0]
+        return prefix
     
     def get_size(self):
         return self.image.size
 
     def get_coordinates(self):
         return (
-            (self.top, self.left),
-            (self.bottom, self.right)
+            self.left, self.top,
+            self.right, self.bottom
         )
+
+    def left_half(self):
+        return (
+            self.left, self.top,
+            int(self.width/2), self.height
+        )
+
+    def right_half(self):
+        return (
+            int(self.width/2), self.top,
+            self.width, self.height
+        )
+
+    def top_half(self):
+        return (
+            self.left, self.top,
+            self.width, int(self.height/2)
+        )
+
+    def bottom_half(self):
+        return (
+            self.left, int(self.height/2), 
+            self.width, self.height
+        )
+
+    def is_landscape(self):
+        return self.width > self.height
+
+    def is_potrait(self):
+        return self.height > self.width
+
+    def first_half(self):
+        if self.is_landscape():
+            return self.left_half()
+        if self.is_potrait():
+            return self.top_half()
+
+    def second_half(self):
+        if self.is_landscape():
+            return self.right_half()
+        if self.is_potrait():
+            return self.bottom_half()
+
+    def format_name(self):
+        return "{0}_{1}_{2}_{3}_{4}_.{5}".format(
+            self.prefix, 
+            self.top, 
+            self.left,
+            self.bottom, 
+            self.right, 
+            self.ext
+        )
+
+    def format_name_with_dir(self):
+        return "{0}/{1}".format(
+            self.prefix, self.format_name()
+        )
+
+    def save(self):
+        name_with_dir = "{0}/{1}".format(
+            self.prefix, self.format_name()
+        )
+        self.image.save(name_with_dir)
 
 
 
@@ -124,31 +200,20 @@ def get_hash_diff_pil(image1, image2, algorithm):
     hash2 = switcher[algorithm](image2)
     return abs(hash1 - hash2)
 
-def divide_image(image):
+def divide_image(imagefile):
     """
     Divides an image into two along the large axis
     and return the files as PIL object as tuple
     """
-    img = Image.open(image)
-    wd, ht = img.size
-    # if images are not the initial ones, get 
-    # coordinates from filename instead
-    if (len(image1.split("_") > 1)):
-        pass # TODO:
+    img = MetaImage(imagefile)
 
-    if (wd % 2 == 0) and (ht % 2 == 0):
-        if wd > ht:
-            pos1 = (0, 0, int(wd/2), ht)
-            pos2 = (int(wd/2), 0, wd, ht)
-            c1_img = img.crop(pos1)
-            c2_img = img.crop(pos2)
-        if ht > wd:
-            pos1 = (0, 0, wd, int(ht/2))
-            pos2 = (0, int(wd/2), wd, ht)
-            c1_img = img.crop(pos1)
-            c2_img = img.crop(pos2)
+    if (img.width % 2 == 0) and (img.height % 2 == 0):
+        half1 = img.image.crop(img.first_half())
+        half2 = img.image.crop(img.second_half())
+        half1.save(img.prefix, img.first_half(), img.ext)
+        half2.save(img.prefix, img.second_half(), img.ext)
 
-        return (c1_img, c2_img, pos1, pos2)
+        # return (c1_img, c2_img, pos1, pos2)
     else:
         print("Image size is not even, cannot divide. Exiting...")
         return (None, None, None, None)
@@ -156,8 +221,11 @@ def divide_image(image):
 
 def test():
     image = MetaImage("chrome.png")
-    print(image.get_coordinates())
-
+    print(image.format_name_with_dir())
+    image2 = MetaImage("chrome_0_40.png")
+    print(image2.format_name_with_dir())
+    image.image.show()
+    image2.image.show()
 
 
 if __name__ == '__main__':
