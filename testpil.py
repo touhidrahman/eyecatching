@@ -2,113 +2,8 @@
 import subprocess, os, sys, shutil
 from PIL import Image
 import imagehash
-
-    def __init__(self, imagename):
-        self.imagename = imagename
-        namebits = self.imagename.split("_") # A_0_0_100_100_.png
-        self.prefix = self.get_prefix()
-        if len(namebits) == 1:
-            self.path = os.getcwd()
-            self.image = Image.open(imagename)
-        else:
-            self.path = "{0}/{1}".format(
-                os.getcwd(), self.prefix
-            )
-            self.image = Image.open(self.path + '/' + self.imagename)
-
-        self.size = self.image.size
-        self.width = self.image.size[0]
-        self.height = self.image.size[1]
-        self.ext = self.imagename.split(".")[1]
-        if len(namebits) > 1:
-            self.left       = int(namebits[1])
-            self.top        = int(namebits[2])
-            self.right      = int(namebits[3])
-            self.bottom     = int(namebits[4])
-        else:
-            self.left = 0
-            self.top = 0
-            self.right = self.width
-            self.bottom = self.height
-
-    def get_prefix(self):
-        raw_prefix = self.imagename.split(".")[0]
-        prefix = raw_prefix.split("_")[0]
-        return prefix
-    
-    def get_size(self):
-        return self.image.size
-
-    def get_coordinates(self):
-        return (
-            self.left, self.top,
-            self.right, self.bottom
-        )
-
-    def left_half(self):
-        return (
-            self.left, self.top,
-            int(self.width/2), self.height
-        )
-
-    def right_half(self):
-        return (
-            int(self.width/2), self.top,
-            self.width, self.height
-        )
-
-    def top_half(self):
-        return (
-            self.left, self.top,
-            self.width, int(self.height/2)
-        )
-
-    def bottom_half(self):
-        return (
-            self.left, int(self.height/2), 
-            self.width, self.height
-        )
-
-    def is_landscape(self):
-        return self.width > self.height
-
-    def is_potrait(self):
-        return self.height > self.width
-
-    def first_half(self):
-        if self.is_landscape():
-            return self.left_half()
-        if self.is_potrait():
-            return self.top_half()
-
-    def second_half(self):
-        if self.is_landscape():
-            return self.right_half()
-        if self.is_potrait():
-            return self.bottom_half()
-
-    def format_name(self):
-        return "{0}_{1}_{2}_{3}_{4}_.{5}".format(
-            self.prefix, 
-            self.top, 
-            self.left,
-            self.bottom, 
-            self.right, 
-            self.ext
-        )
-
-    def format_name_with_dir(self):
-        return "{0}/{1}".format(
-            self.prefix, self.format_name()
-        )
-
-    def save(self):
-        name_with_dir = "{0}/{1}".format(
-            self.prefix, self.format_name()
-        )
-        self.image.save(name_with_dir)
-
-
+from eyecatchingutil import MetaImage
+from eyecatchingutil import ImageComparator
 
 def main():
     print('Working....')
@@ -141,14 +36,6 @@ def main():
     print("Done.")
 
 
-def make_name(prefix, coords, ext):
-    """
-    Make a name of image slice like: A_0_0_100_100_.png
-    """
-    x, y, x1, y1 = coords
-    return "{0}/{0}_{1}_{2}_{3}_{4}_.{5}".format(
-        prefix, x, y, x1, y1, ext
-    )
 
 def recursive_check(image1, image2):
     # if both image are same, abort further check
@@ -220,13 +107,14 @@ def divide_image(imagefile):
 
 
 def test():
-    image = MetaImage("chrome.png")
-    print(image.format_name_with_dir())
-    image2 = MetaImage("chrome_0_40.png")
-    print(image2.format_name_with_dir())
-    image.image.show()
-    image2.image.show()
+    image1 = MetaImage("c.jpg")
+    image2 = MetaImage("a.jpg")
+    # image1.image.show()
+    # image2.image.show()
 
+    c1 = ImageComparator(image1, image2)
+    print(c1.is_similar())
+    print(c1.hamming_diff())
 
 if __name__ == '__main__':
     # main()

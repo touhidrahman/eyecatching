@@ -122,3 +122,5 @@ venv.bak/
 
 # Image files
 **/*.png
+**/*.jpg
+**/*.jpeg
