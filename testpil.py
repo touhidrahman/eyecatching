@@ -113,8 +113,9 @@ def test():
     # image2.image.show()
 
     c1 = ImageComparator(image1, image2)
-    print(c1.is_similar())
-    print(c1.hamming_diff())
+    # print(c1.is_similar("dhash"))
+    # print(c1.is_similar_d_hash())
+    print(c1.hamming_diff("phash"))
 
 if __name__ == '__main__':
     # main()

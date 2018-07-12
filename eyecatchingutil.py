@@ -39,6 +39,9 @@ class MetaImage:
     def p_hash(self):
         return imagehash.phash(self.image)
 
+    def d_hash(self):
+        return imagehash.dhash(self.image)
+
     def get_prefix(self):
         raw_prefix = self.imagename.split(".")[0]
         prefix = raw_prefix.split("_")[0]
@@ -92,14 +95,14 @@ class MetaImage:
         if self.is_potrait():
             return self.bottom_half()
 
-    def format_name(self):
+    def format_name(self, coords = None):
+        if (coords != None):
+            (t, l, b, r) = coords
+        else:
+            (t, l, b, r) = (self.top, self.left, self.bottom, self.right)
+
         return "{0}_{1}_{2}_{3}_{4}_.{5}".format(
-            self.prefix, 
-            self.top, 
-            self.left,
-            self.bottom, 
-            self.right, 
-            self.ext
+            self.prefix, t, l, b, r, self.ext
         )
 
     def save(self):
@@ -109,6 +112,28 @@ class MetaImage:
         del self.image
         os.remove(self.imagename)
 
+    def crop(self, coordinates):
+        img = self.image.crop(coordinates)
+        filename = self.format_name(coordinates)
+        img.save(filename)
+
+    def save_top_half(self):
+        self.crop(self.top_half())
+
+    def save_bottom_half(self):
+        self.crop(self.bottom_half())
+
+    def save_left_half(self):
+        self.crop(self.left_half())
+
+    def save_right_half(self):
+        self.crop(self.right_half())
+
+    def save_first_half(self):
+        self.crop(self.first_half())
+
+    def save_second_half(self):
+        self.crop(self.second_half())
 
 
 
@@ -120,8 +145,37 @@ class ImageComparator:
         self.image1 = image1
         self.image2 = image2
 
-    def is_similar(self):
+    def is_similar(self, algorithm = "ahash"):
+        switcher = {
+            'ahash': self.is_similar_a_hash,
+            'phash': self.is_similar_p_hash,
+            'dhash': self.is_similar_d_hash
+        }
+        return switcher[algorithm]()
+
+    def hamming_diff(self, algorithm = "ahash"):
+        switcher = {
+            'ahash': self.hamming_diff_a_hash,
+            'phash': self.hamming_diff_p_hash,
+            'dhash': self.hamming_diff_d_hash
+        }
+        print(switcher[algorithm]())
+        return switcher[algorithm]()
+
+    def is_similar_a_hash(self):
         return self.image1.a_hash() == self.image2.a_hash()
 
-    def hamming_diff(self):
+    def is_similar_p_hash(self):
+        return self.image1.p_hash() == self.image2.p_hash()
+
+    def is_similar_d_hash(self):
+        return self.image1.d_hash() == self.image2.d_hash()
+
+    def hamming_diff_a_hash(self):
         return abs(self.image1.a_hash() - self.image2.a_hash())
+
+    def hamming_diff_p_hash(self):
+        return abs(self.image1.p_hash() - self.image2.p_hash())
+
+    def hamming_diff_d_hash(self):
+        return abs(self.image1.d_hash() - self.image2.d_hash())
