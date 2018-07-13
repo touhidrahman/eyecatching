@@ -10,6 +10,8 @@ from urllib.parse import urlparse
 
 class MetaImage:
 
+    LIMIT = 8
+
     def __init__(self, imagename, path = os.getcwd()):
         self.imagename = imagename
         self.prefix = self.get_prefix()
@@ -53,28 +55,35 @@ class MetaImage:
             self.right, self.bottom
         )
 
+# TODO: some problem here
+    def _even(self, length):
+        x = int(length / 2)
+        if x % 2 != 0:
+            x -= 1
+        return x
+
     def left_half(self):
         return (
-            self.left, self.top,
-            int(self.width/2), self.height
+            self.left,                  self.top,
+            self._even(self.width),     self.height
         )
 
     def right_half(self):
         return (
-            int(self.width/2), self.top,
-            self.width, self.height
+            self._even(self.width),     self.top,
+            self.width,                 self.height
         )
 
     def top_half(self):
         return (
-            self.left, self.top,
-            self.width, int(self.height/2)
+            self.left,                  self.top,
+            self.width,                 self._even(self.height)
         )
 
     def bottom_half(self):
         return (
-            self.left, int(self.height/2), 
-            self.width, self.height
+            self.left,                  self._even(self.height), 
+            self.width,                 self.height
         )
 
     def is_landscape(self):
@@ -115,6 +124,8 @@ class MetaImage:
     def crop(self, coordinates):
         img = self.image.crop(coordinates)
         filename = self.format_name(coordinates)
+        if (os.path.isfile(filename)):
+            os.remove(filename)
         img.save(filename)
 
     def save_top_half(self):
@@ -134,6 +145,21 @@ class MetaImage:
 
     def save_second_half(self):
         self.crop(self.second_half())
+
+    def divide(self):
+        bigger = self.height
+        if self.width > self.height:
+            bigger = self.width
+
+        if bigger > MetaImage.LIMIT * 2:
+            self.save_first_half()
+            self.save_second_half()
+            return (
+                self.format_name(self.first_half()),
+                self.format_name(self.second_half())
+                )
+        print("exit divide")
+        return (None, None)
 
 
 
@@ -159,7 +185,6 @@ class ImageComparator:
             'phash': self.hamming_diff_p_hash,
             'dhash': self.hamming_diff_d_hash
         }
-        print(switcher[algorithm]())
         return switcher[algorithm]()
 
     def is_similar_a_hash(self):
