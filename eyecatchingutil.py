@@ -24,7 +24,6 @@ class MetaImage:
         self.ext = self.imagename.split(".")[1]
 
         self.actual_coords = Coordinates(0, 0, self.width, self.height)
-        self.virtual_coords = Coordinates(0, 0, self.width, self.height)
 
         namebits = self.imagename.split("_") # A_0_0_100_100_.png
         # following coords are relative to original image
@@ -34,6 +33,8 @@ class MetaImage:
             _r = int(namebits[3])
             _b = int(namebits[4])
             self.virtual_coords = Coordinates(_l, _t, _r, _b)
+        else:
+            self.virtual_coords = self.actual_coords
 
     def a_hash(self):
         return imagehash.average_hash(self.image)
@@ -117,7 +118,7 @@ class MetaImage:
 
     def divide(self):
         bigger = self.height
-        if self.width >= self.height:
+        if self.width > self.height:
             bigger = self.width
 
         if bigger >= MetaImage.LIMIT * 2:
@@ -127,7 +128,7 @@ class MetaImage:
                 self.format_name(self.virtual_coords.first_half()),
                 self.format_name(self.virtual_coords.second_half())
                 )
-        print("exit divide")
+
         return (None, None)
 
 
