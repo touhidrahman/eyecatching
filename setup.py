@@ -1,5 +1,6 @@
 from setuptools import setup
 
+#entry config: cmd = file:method
 setup(
     name = 'Eyecatching',
     version = '1.0-beta',
@@ -12,6 +13,6 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-        eyecatching=eyecatching:main
+        eyecatching=eyecatching:cli 
     ''',
 )

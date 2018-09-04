@@ -6,117 +6,25 @@ import imagehash
 import click
 from PIL import Image
 from urllib.parse import urlparse
+from eyecatchingutil import MetaImage
 
-class MetaImage:
+@click.group()
+def cli():
+    """
+    Tests the frontend of a website/webapp by comparing screenshots
+    captured from different browsers (at present Chrome and Firefox).
 
-    def __init__(self, imagename):
-        self.imagename = imagename
-        namebits = self.imagename.split("_") # A_0_0_100_100_.png
-        self.prefix = self.get_prefix()
-        if len(namebits) == 1:
-            self.path = os.getcwd()
-            self.image = Image.open(imagename)
-        else:
-            self.path = "{0}/{1}".format(
-                os.getcwd(), self.prefix
-            )
-            self.image = Image.open(self.path + '/' + self.imagename)
+        $ eyecatching linear <URL> [--option value]
+        $ eyecatching recur <URL> [--option value]
 
-        self.size = self.image.size
-        self.width = self.image.size[0]
-        self.height = self.image.size[1]
-        self.ext = self.imagename.split(".")[1]
-        if len(namebits) > 1:
-            self.left       = int(namebits[1])
-            self.top        = int(namebits[2])
-            self.right      = int(namebits[3])
-            self.bottom     = int(namebits[4])
-        else:
-            self.left = 0
-            self.top = 0
-            self.right = self.width
-            self.bottom = self.height
+    For example:
 
-    def get_prefix(self):
-        raw_prefix = self.imagename.split(".")[0]
-        prefix = raw_prefix.split("_")[0]
-        return prefix
-    
-    def get_size(self):
-        return self.image.size
+        $ eyecatching linear http://example.com
 
-    def get_coordinates(self):
-        return (
-            self.left, self.top,
-            self.right, self.bottom
-        )
+    """
+    pass
 
-    def left_half(self):
-        return (
-            self.left, self.top,
-            int(self.width/2), self.height
-        )
-
-    def right_half(self):
-        return (
-            int(self.width/2), self.top,
-            self.width, self.height
-        )
-
-    def top_half(self):
-        return (
-            self.left, self.top,
-            self.width, int(self.height/2)
-        )
-
-    def bottom_half(self):
-        return (
-            self.left, int(self.height/2), 
-            self.width, self.height
-        )
-
-    def is_landscape(self):
-        return self.width > self.height
-
-    def is_potrait(self):
-        return self.height > self.width
-
-    def first_half(self):
-        if self.is_landscape():
-            return self.left_half()
-        if self.is_potrait():
-            return self.top_half()
-
-    def second_half(self):
-        if self.is_landscape():
-            return self.right_half()
-        if self.is_potrait():
-            return self.bottom_half()
-
-    def format_name(self):
-        return "{0}_{1}_{2}_{3}_{4}_.{5}".format(
-            self.prefix, 
-            self.top, 
-            self.left,
-            self.bottom, 
-            self.right, 
-            self.ext
-        )
-
-    def format_name_with_dir(self):
-        return "{0}/{1}".format(
-            self.prefix, self.format_name()
-        )
-
-    def save(self):
-        name_with_dir = "{0}/{1}".format(
-            self.prefix, self.format_name()
-        )
-        self.image.save(name_with_dir)
-
-
-
-@click.command()
+@cli.command()
 @click.argument('url', default="")
 @click.option('--factor', default=20,
             help="Tile block size, px. \n(Default: 20)")
@@ -128,7 +36,7 @@ class MetaImage:
             help="Reference browser \n(Default: chrome) \nAvailable: chrome, firefox")
 @click.option('--output', help="Name for the output file.")
 @click.option('--reset', is_flag=True, help="Remove all previous outputs.")
-def main(
+def linear(
     url,
     factor,
     viewport_width,
@@ -137,14 +45,7 @@ def main(
     output,
     reset):
     """
-    Tests the frontend of a website/webapp by comparing screenshots
-    captured from different browsers (at present Chrome and Firefox).
-
-    $ eyecatching <URL> [--option value]
-
-    For example:
-
-    $ eyecatching http://example.com
+    - Test two screenshots using linear approach
 
     """
 
@@ -209,8 +110,19 @@ def get_image_size(filename):
     del img
     return size
 
-
-def get_screenshot(browser, url, image_size, image_name):
+# @click.command()
+# @click.argument('url', default="")
+# @click.option('--viewport-width', default=1280,
+#             help="Viewport width, px. \n(Default: 1280)")
+# @click.option('--browser', default="chrome",
+#             help="Browser to use \n(Default: chrome) \nAvailable: chrome, firefox")
+# @click.option('--reset', is_flag=True, help="Remove all previous screenshots")
+def get_screenshot(
+    browser,
+    url,
+    image_size,
+    image_name
+    ):
     """
     Get screenshot of the given webpage
     """
