@@ -8,6 +8,9 @@ from PIL import Image
 from urllib.parse import urlparse
 from eyecatchingutil import MetaImage
 
+image_chrome = "chrome.png"
+image_firefox = "firefox.png"
+
 @click.group()
 def cli():
     """
@@ -64,8 +67,6 @@ def linear(
     print('Working....')
 
     image_size = {'width': viewport_width}
-    image_chrome = "chrome.png"
-    image_firefox = "firefox.png"
 
     # On reset command remove all previous files and exit
     if reset:
@@ -100,6 +101,25 @@ def linear(
     remake_image(ref_img, comp_img, algorithm)
 
     print("Done.")
+
+def recursive():
+    pass
+
+@cli.command()
+def reset():
+    """
+    - Remove old output files
+    """
+    for image in [image_chrome, image_firefox]:
+        shutil.rmtree(image.split('.')[0])
+        os.remove(image)
+
+    for filename in os.listdir("."):
+        if filename.startswith("output"):
+            os.remove(filename)
+
+    print('All previous outputs removed.')
+
 
 def get_image_size(filename):
     """
@@ -340,13 +360,6 @@ def is_valid_url(url):
         return False
 
 
-# def dynamic():
-#     # divide the pic off large axis
-#     # check hash 
-#     # if similar, discard. otherwise continue
-#     image_size = {'width': 1280}
-#     image_chrome = "chrome.png"
-#     image_firefox = "firefox.png"
 
 
 
