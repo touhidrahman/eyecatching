@@ -1,25 +1,17 @@
 #compare --ref imageA.png --com imageB.png [--other-options]
 
-# Importing libraries
 from PIL import Image
 import imagehash
 import os
 import shutil
 import click
 
-# Picture class
 class Picture:
-    # Constructor method
-    # Initially takes an image and its name
-    # Find out image's width and height
     def __init__(self, img, name):
         self.img = img
         self.name = name
         self.width, self.height = self.img.size
 
-    # saveImage Method
-    # Takes image co-ordinates
-    # Now, just blend the image "B" and return
     def saveImage(self, x1, y1, x2, y2, diff):
         # Crop the image with given co-ordinates
         img1 = self.img.crop( (x1, y1, x2, y2) )
@@ -38,7 +30,6 @@ class Picture:
         self.img.save("images/reconstruct.png")
     
 
-#Main class
 class Main:
     # Constructor method
     # Initially load both images
@@ -49,10 +40,9 @@ class Main:
         self.img_b = Picture(Image.open(com), "B")
         self.count = 0
 
-    # compare method
     # Compares two image portions with given co-ordinates
     def compare(self, x1, y1, x2, y2):
-         # At first crop the image portions
+        # At first crop the image portions
         a1_img = self.img_a.img.crop( (x1, y1, x2, y2) )
         b1_img = self.img_b.img.crop( (x1, y1, x2, y2) )
         # Used dhash as it takes less time than phash and gives accurate result
@@ -92,7 +82,7 @@ class Main:
         height = y2-y1
 
         # return and save if image is less than 8px
-        if width<=8 or height<=8:  
+        if width <= 8 or height <= 8:  
             # print(diff)
             blend_img = self.img_a.saveImage(x1, y1, x2, y2, diff)
             # Blending the second image part
@@ -105,18 +95,18 @@ class Main:
             # int() is used just to convert 1.0 to 1
             portion = int(width/2) if (width%2)==0 else int((width)/2)+1
             # Calculate co-ordinates of two image portion
-            co_or_1 = [x1, y1, x1+portion, y2]
-            co_or_2 = [x1+portion+1, y1, x2, y2]
+            coor_1 = [x1, y1, x1+portion, y2]
+            coor_2 = [x1+portion+1, y1, x2, y2]
         else: 
             # int() is used just to convert 1.0 to 1
             portion = int(height/2) if (height%2)==0 else int((height)/2)+1
             # Calculate co-ordinates of two image portion
-            co_or_1 = [x1, y1, x2, y1+portion]
-            co_or_2 = [x1, y1+portion+1, x2, y2]
+            coor_1 = [x1, y1, x2, y1+portion]
+            coor_2 = [x1, y1+portion+1, x2, y2]
 
         # Calling compare method with image co-ordinates as arguments
-        self.compare(co_or_1[0], co_or_1[1], co_or_1[2], co_or_1[3])
-        self.compare(co_or_2[0], co_or_2[1], co_or_2[2], co_or_2[3])
+        self.compare(coor_1[0], coor_1[1], coor_1[2], coor_1[3])
+        self.compare(coor_2[0], coor_2[1], coor_2[2], coor_2[3])
         return
 
 

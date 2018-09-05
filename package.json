@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/touhidrahman/eyecatching#readme",
   "dependencies": {
+    "puppeteer": "^1.7.0",
     "puppeteer-core": "^1.7.0"
   }
 }

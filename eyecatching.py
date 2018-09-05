@@ -10,6 +10,7 @@ from eyecatchingutil import MetaImage
 
 image_chrome = "chrome.png"
 image_firefox = "firefox.png"
+image_size = {'width': 1280}
 
 @click.group()
 def cli():
@@ -33,8 +34,8 @@ def cli():
             help="Tile block size, px. \n(Default: 20)")
 @click.option('--viewport-width', default=1280,
             help="Viewport width, px. \n(Default: 1280)")
-@click.option('--algorithm', default="avg",
-            help="Perceptual hashing algorithm to be used. \n(Default: avg) \nAvailable: avg, phash, dhash")
+@click.option('--algorithm', default="ahash",
+            help="Perceptual hashing algorithm to be used. \n(Default: ahash) \nAvailable: ahash, phash, dhash, whash")
 @click.option('--ref-browser', default="chrome",
             help="Reference browser \n(Default: chrome) \nAvailable: chrome, firefox")
 @click.option('--output', help="Name for the output file.")
@@ -70,15 +71,10 @@ def linear(
 
     # On reset command remove all previous files and exit
     if reset:
-        remove_old_files([image_chrome, image_firefox])
+        reset([image_chrome, image_firefox])
         exit()
 
-    get_screenshot('firefox', url, image_size, image_firefox)
-
-    # get viewport height from firefox image
-    image_size['height'] = Image.open(image_firefox).size[1]
-
-    get_screenshot('chrome', url, image_size, image_chrome)
+    screenshot(url, image_size['width'])
 
     print("Resulted image size is {0} x {1}".format(image_size['width'], image_size['height']))
 
@@ -152,7 +148,7 @@ def screenshot(
         print("Invalid URL! Please input a valid URL.")
         exit()
 
-    image_size = {'width': width}
+    image_size = {'width': int(width)}
     default_name = "screenshot.png"
 
     def firefox(url):
@@ -334,9 +330,10 @@ def get_hash_diff(image1, image2, algorithm):
     Get the hamming distance of two images
     """
     switcher = {
-        'avg': imagehash.average_hash,
+        'ahash': imagehash.average_hash,
         'phash': imagehash.phash,
-        'dhash': imagehash.dhash
+        'dhash': imagehash.dhash,
+        'whash': imagehash.whash,
     }
     img1 = Image.open(image1)
     img2 = Image.open(image2)
@@ -345,13 +342,15 @@ def get_hash_diff(image1, image2, algorithm):
     del img1, img2
     return abs(hash1 - hash2)
 
-
-def remove_old_files(images):
+@cli.command()
+def reset(images = [image_chrome, image_firefox]):
     """
-    Remove old output files
+    - Remove old output files
     """
     for image in images:
-        shutil.rmtree(image.split('.')[0])
+        directory = image.split('.')[0]
+        if (os.path.exists(directory)):
+            shutil.rmtree(directory)
         os.remove(image)
 
     for filename in os.listdir("."):
