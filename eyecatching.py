@@ -102,8 +102,11 @@ def linear(
 
     print("Done.")
 
+
+@cli.command()
 def recursive():
     pass
+
 
 @cli.command()
 def reset():
@@ -130,25 +133,29 @@ def get_image_size(filename):
     del img
     return size
 
-# @click.command()
-# @click.argument('url', default="")
-# @click.option('--viewport-width', default=1280,
-#             help="Viewport width, px. \n(Default: 1280)")
-# @click.option('--browser', default="chrome",
-#             help="Browser to use \n(Default: chrome) \nAvailable: chrome, firefox")
-# @click.option('--reset', is_flag=True, help="Remove all previous screenshots")
-def get_screenshot(
-    browser,
+@cli.command()
+@click.argument('url', default="")
+@click.option('--width', default=1280,
+            help="Viewport width, px. \n(Default: 1280)")
+def screenshot(
     url,
-    image_size,
-    image_name
+    width,
     ):
     """
-    Get screenshot of the given webpage
+    - Get screenshot of the given webpage URL
     """
+    if url == "":
+        print("Argument <URL> missing! Please input a valid URL.")
+        exit()
+    
+    if is_valid_url(url) == False:
+        print("Invalid URL! Please input a valid URL.")
+        exit()
+
+    image_size = {'width': width}
     default_name = "screenshot.png"
 
-    def firefox(url, image_size):
+    def firefox(url):
         # add 10px for scrollbar
         window_size = "--window-size={0}".format(image_size['width'] + 10)
         subprocess.call(["firefox",
@@ -158,8 +165,10 @@ def get_screenshot(
         # remove the scrolbar 
         remove_pixels_right(default_name, 10)
 
-    def chrome(url, image_size):
+    def chrome(url):
         # chrome expects full viewport size
+        # for now, even if user asks for chrome screenshot,
+        # fetch firefox shot too (silently). Consider using pupeteer instead
         window_size = "--window-size={0},{1}".format(
             image_size['width'], image_size['height']
         )
@@ -170,14 +179,14 @@ def get_screenshot(
                          "--screenshot",
                          url])
 
-    switcher = {
-        'firefox': firefox,
-        'chrome': chrome
-    }
-    switcher[browser](url, image_size)
-    # rename picture
-    os.rename(default_name, image_name)
-    print("Saved screenshot from {0} with name {1}".format(browser, image_name))
+    firefox(url)
+    image_size['height'] = get_image_size(default_name)[1]
+    os.rename(default_name, image_firefox)
+    print("Saved screenshot from Firefox with name {0}".format(image_firefox))
+    chrome(url)
+    os.rename(default_name, image_chrome)
+    print("Saved screenshot from Chrome with name {0}".format(image_chrome))
+
 
 
 def remove_pixels_right(image: str, pixels: int):
