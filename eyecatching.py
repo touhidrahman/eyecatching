@@ -39,15 +39,14 @@ def cli():
 @click.option('--ref-browser', default="chrome",
             help="Reference browser \n(Default: chrome) \nAvailable: chrome, firefox")
 @click.option('--output', help="Name for the output file.")
-@click.option('--reset', is_flag=True, help="Remove all previous outputs.")
 def linear(
     url,
     factor,
     viewport_width,
     algorithm,
     ref_browser,
-    output,
-    reset):
+    output
+):
     """
     - Test two screenshots using linear approach
 
@@ -68,11 +67,6 @@ def linear(
     print('Working....')
 
     image_size = {'width': viewport_width}
-
-    # On reset command remove all previous files and exit
-    if reset:
-        reset([image_chrome, image_firefox])
-        exit()
 
     screenshot(url, image_size['width'])
 
@@ -102,23 +96,6 @@ def linear(
 @cli.command()
 def recursive():
     pass
-
-
-@cli.command()
-def reset():
-    """
-    - Remove old output files
-    """
-    for image in [image_chrome, image_firefox]:
-        shutil.rmtree(image.split('.')[0])
-        os.remove(image)
-
-    for filename in os.listdir("."):
-        if filename.startswith("output"):
-            os.remove(filename)
-
-    print('All previous outputs removed.')
-
 
 def get_image_size(filename):
     """
