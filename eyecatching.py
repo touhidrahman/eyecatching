@@ -29,10 +29,16 @@ def cli():
     pass
 
 @cli.command()
+@click.argument('t', default="test")
+def test(t):
+    print(t)
+
+
+@cli.command()
 @click.argument('url', default="")
 @click.option('--factor', default=20,
             help="Tile block size, px. \n(Default: 20)")
-@click.option('--viewport-width', default=1280,
+@click.option('--width', default=1280,
             help="Viewport width, px. \n(Default: 1280)")
 @click.option('--algorithm', default="ahash",
             help="Perceptual hashing algorithm to be used. \n(Default: ahash) \nAvailable: ahash, phash, dhash, whash")
@@ -42,11 +48,11 @@ def cli():
 def linear(
     url,
     factor,
-    viewport_width,
+    width = 1280,
     algorithm,
     ref_browser,
     output
-):
+    ):
     """
     - Test two screenshots using linear approach
 
@@ -66,9 +72,9 @@ def linear(
 
     print('Working....')
 
-    image_size = {'width': viewport_width}
+    # image_size = {'width': viewport_width}
 
-    screenshot(url, image_size['width'])
+    screenshot(url, width)
 
     print("Resulted image size is {0} x {1}".format(image_size['width'], image_size['height']))
 
@@ -125,42 +131,46 @@ def screenshot(
         print("Invalid URL! Please input a valid URL.")
         exit()
 
-    image_size = {'width': int(width)}
-    default_name = "screenshot.png"
+    size = get_firefox_screenshot(url, width)
+    image_size['height'] = size[1]
+    get_chrome_screenshot(url, width, size[1])    
 
-    def firefox(url):
-        # add 10px for scrollbar
-        window_size = "--window-size={0}".format(image_size['width'] + 10)
-        subprocess.call(["firefox",
-                        "-screenshot",
-                        window_size,
-                        url])
-        # remove the scrolbar 
-        remove_pixels_right(default_name, 10)
 
-    def chrome(url):
-        # chrome expects full viewport size
-        # for now, even if user asks for chrome screenshot,
-        # fetch firefox shot too (silently). Consider using pupeteer instead
-        window_size = "--window-size={0},{1}".format(
-            image_size['width'], image_size['height']
-        )
-        subprocess.call(["/opt/google/chrome/chrome",
-                         "--headless",
-                         "--hide-scrollbars",
-                         window_size,
-                         "--screenshot",
-                         url])
-
-    firefox(url)
-    image_size['height'] = get_image_size(default_name)[1]
-    os.rename(default_name, image_firefox)
+def get_firefox_screenshot(url, width):
+    """
+    Get firefox screenshot and return image size
+    """
+    # add 10px for scrollbar
+    window_size = "--window-size={0}".format(width + 10)
+    subprocess.call(["firefox",
+                    "-screenshot",
+                    window_size,
+                    url])
+    # rename the output file
+    os.rename("screenshot.png", image_firefox)
+    # remove the scrolbar 
+    remove_pixels_right(image_firefox, 10)
     print("Saved screenshot from Firefox with name {0}".format(image_firefox))
-    chrome(url)
-    os.rename(default_name, image_chrome)
+    return get_image_size(image_firefox)
+
+
+def get_chrome_screenshot(url:str, width:int, height:int):
+    """
+    Get chrome screenshot and return image size
+    """
+    # chrome expects full viewport size
+    # for now, even if user asks for chrome screenshot,
+    # fetch firefox shot too (silently). Consider using pupeteer instead
+    window_size = "--window-size={0},{1}".format(width, height)
+    subprocess.call(["/opt/google/chrome/chrome",
+                        "--headless",
+                        "--hide-scrollbars",
+                        window_size,
+                        "--screenshot",
+                        url])
+    os.rename("screenshot.png", image_chrome)
     print("Saved screenshot from Chrome with name {0}".format(image_chrome))
-
-
+    return get_image_size(image_chrome)
 
 def remove_pixels_right(image: str, pixels: int):
     """
@@ -239,6 +249,12 @@ def tile_image(filename: str, edge: int):
 
     print("Generated {0} images in directory {1}".format(counter, img.prefix))
 
+
+def probe_viewport_size():
+    """
+    Determine the webpage viewport size using a headless browser
+    """
+    pass
 
 def mark_image(image: str, opacity: float):
     """
