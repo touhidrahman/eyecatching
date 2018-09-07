@@ -6,18 +6,18 @@ import imagehash
 import click
 from PIL import Image
 from urllib.parse import urlparse
-from eyecatchingutil import Container
+from eyecatchingutil import Controller
 from eyecatchingutil import MetaImage
-from eyecatchingutil import MetaImage3
+from eyecatchingutil import MetaImage2
 from eyecatchingutil import BrowserScreenshot
 from eyecatchingutil import FirefoxScreenshot
 from eyecatchingutil import ChromeScreenshot
 
-pass_container = click.make_pass_decorator(Container, ensure = True)
+pass_controller = click.make_pass_decorator(Controller, ensure = True)
 
 @click.group()
-@pass_container
-def cli(container):
+@pass_controller
+def cli(controller):
     """
     Tests the frontend of a website/webapp by comparing screenshots
     captured from different browsers (at present Chrome and Firefox).
@@ -34,9 +34,9 @@ def cli(container):
 
 @cli.command()
 @click.argument('t', default="test")
-@pass_container
-def test(container, t):
-    print(container.image_chrome.name)
+@pass_controller
+def test(controller, t):
+    print(controller.image_chrome.name)
     c = ChromeScreenshot()
     c.take_shot(t, 1280)
 
@@ -56,9 +56,9 @@ def test(container, t):
 @click.option('--width',
             default=1280,
             help="Viewport width, px. \n(Default: 1280)")
-@pass_container
+@pass_controller
 def linear(
-    container,
+    controller,
     url,
     factor,
     algorithm,
@@ -84,38 +84,38 @@ def linear(
 
     print('Eyecatching is working....')
 
-    container.get_screenshot(url)
+    controller.get_screenshot(url)
 
     # extend images to cut precisely
     print("Info: \tExtending images with white canvas to work with block size")
-    container.image_chrome.extend_image(factor)
-    container.image_firefox.extend_image(factor)
+    controller.image_chrome.extend_image(factor)
+    controller.image_firefox.extend_image(factor)
 
     # slice to tiles
-    container.tile_image(container.image_chrome.imagename, factor)
-    container.tile_image(container.image_firefox.imagename, factor)
+    controller.tile_image(controller.image_chrome.imagename, factor)
+    controller.tile_image(controller.image_firefox.imagename, factor)
 
     if ref_browser == "chrome":
-        ref_img = container.image_chrome.imagename
-        comp_img = container.image_firefox.imagename
+        ref_img = controller.image_chrome.imagename
+        comp_img = controller.image_firefox.imagename
     if ref_browser == "firefox":
-        ref_img = container.image_firefox.imagename
-        comp_img = container.image_chrome.imagename
+        ref_img = controller.image_firefox.imagename
+        comp_img = controller.image_chrome.imagename
 
     # join slices
-    output = container.remake_image(ref_img, comp_img, algorithm)
+    output = controller.remake_image(ref_img, comp_img, algorithm)
 
     print("Eyecathing process completed.")
     output.show()
 
 
 @cli.command()
-@pass_container
+@pass_controller
 def recursive(container):
     class RecursiveController:
         def __init__(self, ref, com, algorithm):
-            self.img_a = MetaImage3(Image.open(ref), "A")
-            self.img_b = MetaImage3(Image.open(com), "B")
+            self.img_a = MetaImage2(Image.open(ref), "A")
+            self.img_b = MetaImage2(Image.open(com), "B")
             self.count = 0
             self.algorithm = algorithm
             self.switcher = {

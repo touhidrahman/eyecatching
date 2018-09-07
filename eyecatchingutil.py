@@ -27,15 +27,15 @@ class MetaImage:
         self.height = self.image.size[1]
         self.ext = self.imagename.split(".")[1]
         if len(namebits) > 1:
-            self.x1eft       = int(namebits[1])
-            self.y1op        = int(namebits[2])
-            self.x2ight      = int(namebits[3])
-            self.y2ottom     = int(namebits[4])
+            self.left       = int(namebits[1])
+            self.top        = int(namebits[2])
+            self.right      = int(namebits[3])
+            self.bottom     = int(namebits[4])
         else:
-            self.x1eft = 0
-            self.y1op = 0
-            self.x2ight = self.width
-            self.y2ottom = self.height
+            self.left = 0
+            self.top = 0
+            self.right = self.width
+            self.bottom = self.height
 
     def get_prefix(self):
         raw_prefix = self.imagename.split(".")[0]
@@ -47,31 +47,31 @@ class MetaImage:
 
     def get_coordinates(self):
         return (
-            self.x1eft, self.y1op,
-            self.x2ight, self.y2ottom
+            self.left,  self.top,
+            self.right, self.bottom
         )
 
     def left_half(self):
         return (
-            self.x1eft, self.y1op,
-            int(self.width/2), self.height
+            self.left,          self.top,
+            int(self.width/2),  self.height
         )
 
     def right_half(self):
         return (
-            int(self.width/2), self.y1op,
-            self.width, self.height
+            int(self.width/2),  self.top,
+            self.width,         self.height
         )
 
     def top_half(self):
         return (
-            self.x1eft, self.y1op,
+            self.left,  self.top,
             self.width, int(self.height/2)
         )
 
     def bottom_half(self):
         return (
-            self.x1eft, int(self.height/2), 
+            self.left,  int(self.height/2), 
             self.width, self.height
         )
 
@@ -96,10 +96,10 @@ class MetaImage:
     def format_name(self):
         return "{0}_{1}_{2}_{3}_{4}_.{5}".format(
             self.prefix, 
-            self.y1op, 
-            self.x1eft,
-            self.y2ottom, 
-            self.x2ight, 
+            self.top, 
+            self.left,
+            self.bottom, 
+            self.right, 
             self.ext
         )
 
@@ -117,130 +117,6 @@ class MetaImage:
 
 
 class MetaImage2:
-
-    LIMIT = 8
-
-    def __init__(self, imagename, path = os.getcwd()):
-        self.imagename = imagename
-        self.prefix = self.get_prefix()
-        self.path = path
-        self.image = Image.open(imagename)
-
-        self.size = self.image.size
-        self.width = self.image.size[0]
-        self.height = self.image.size[1]
-        self.ext = self.imagename.split(".")[1]
-
-        self.actual_coords = Coordinates(0, 0, self.width, self.height)
-
-        namebits = self.imagename.split("_") # A_0_0_100_100_.png
-        # following coords are relative to original image
-        if len(namebits) > 1:
-            _l = int(namebits[1])
-            _t = int(namebits[2])
-            _r = int(namebits[3])
-            _b = int(namebits[4])
-            self.virtual_coords = Coordinates(_l, _t, _r, _b)
-        else:
-            self.virtual_coords = self.actual_coords
-
-    def a_hash(self):
-        return imagehash.average_hash(self.image)
-
-    def p_hash(self):
-        return imagehash.phash(self.image)
-
-    def d_hash(self):
-        return imagehash.dhash(self.image)
-
-    def get_prefix(self):
-        raw_prefix = self.imagename.split(".")[0]
-        prefix = raw_prefix.split("_")[0]
-        return prefix
-
-    def coordinates(self):
-        return self.actual_coords.as_tuple()
-
-    def relative_coordinates(self):
-        return self.virtual_coords.as_tuple()
-
-    def is_landscape(self):
-        return self.width > self.height
-
-    def is_potrait(self):
-        return self.height > self.width
-
-    def format_name(self, coords = None):
-        if (coords != None):
-            (l, t, r, b) = coords
-        else:
-            (l, t, r, b) = self.virtual_coords.as_tuple()
-
-        return "{0}_{1}_{2}_{3}_{4}_.{5}".format(
-            self.prefix, l, t, r, b, self.ext
-        )
-
-    def save(self):
-        self.image.save(self.format_name())
-
-    def delete(self):
-        del self.image
-        os.remove(self.imagename)
-
-    def crop(self, crop_coords, naming_coords):
-        img = self.image.crop(crop_coords)
-        filename = self.format_name(naming_coords)
-        if os.path.isfile(filename):
-            os.remove(filename)
-        img.save(filename)
-
-    def save_top_half(self):
-        actual = self.actual_coords.top_half()
-        virtual = self.virtual_coords.top_half()
-        self.crop(actual, virtual)
-
-    def save_bottom_half(self):
-        actual = self.actual_coords.bottom_half()
-        virtual = self.virtual_coords.bottom_half()
-        self.crop(actual, virtual)
-
-    def save_left_half(self):
-        actual = self.actual_coords.left_half()
-        virtual = self.virtual_coords.left_half()
-        self.crop(actual, virtual)
-
-    def save_right_half(self):
-        actual = self.actual_coords.right_half()
-        virtual = self.virtual_coords.right_half()
-        self.crop(actual, virtual)
-
-    def save_first_half(self):
-        actual = self.actual_coords.first_half()
-        virtual = self.virtual_coords.first_half()
-        self.crop(actual, virtual)
-
-    def save_second_half(self):
-        actual = self.actual_coords.second_half()
-        virtual = self.virtual_coords.second_half()
-        self.crop(actual, virtual)
-
-    def divide(self):
-        bigger = self.height
-        if self.width > self.height:
-            bigger = self.width
-
-        if bigger >= MetaImage2.LIMIT * 2:
-            self.save_first_half()
-            self.save_second_half()
-            return (
-                self.format_name(self.virtual_coords.first_half()),
-                self.format_name(self.virtual_coords.second_half())
-                )
-
-        return (None, None)
-
-
-class MetaImage3:
     def __init__(self, img, name):
         self.img = img
         self.name = name
@@ -506,7 +382,7 @@ class ChromeScreenshot(BrowserScreenshot):
 
 
 
-class Container:
+class Controller:
     def __init__(self):
         self.image_chrome = ChromeScreenshot()
         self.image_firefox = FirefoxScreenshot()
