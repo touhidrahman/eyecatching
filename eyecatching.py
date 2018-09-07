@@ -7,6 +7,7 @@ import click
 from PIL import Image
 from urllib.parse import urlparse
 from eyecatchingutil import Controller
+from eyecatchingutil import RecursiveController
 from eyecatchingutil import MetaImage
 from eyecatchingutil import MetaImage2
 from eyecatchingutil import BrowserScreenshot
@@ -110,105 +111,38 @@ def linear(
 
 
 @cli.command()
+@click.argument('url')
+@click.option('--threshold',
+            default=8,
+            help="Edge of smallest block size, px. \nLower value means more accurate. Min: 8\n(Default: 8)")
+@click.option('--algorithm',
+            default="ahash",
+            help="Perceptual hashing algorithm to be used. \n(Default: ahash) \nAvailable: ahash, phash, dhash, whash")
+@click.option('--ref-browser',
+            default="chrome",
+            help="Reference browser \n(Default: chrome) \nAvailable: chrome, firefox")
+@click.option('--output', help="Name for the output file.")
+@click.option('--width',
+            default=1280,
+            help="Viewport width, px. \n(Default: 1280)")
 @pass_controller
-def recursive(container):
-    class RecursiveController:
-        def __init__(self, ref, com, algorithm):
-            self.img_a = MetaImage2(Image.open(ref), "A")
-            self.img_b = MetaImage2(Image.open(com), "B")
-            self.count = 0
-            self.algorithm = algorithm
-            self.switcher = {
-                'ahash': self.a_hash,
-                'dhash': self.d_hash,
-                'phash': self.p_hash,
-                'whash': self.w_hash
-            }
+def recursive(
+    controller,
+    url,
+    algorithm,
+    ref_browser,
+    output,
+    threshold,
+    width
+    ):
+    controller2 = RecursiveController()
+    controller2.algorithm = algorithm
+    controller2.threshold = threshold
 
-        # Methods for selecting given hashing algorithm by switcher
-        def a_hash(self, img):
-            return imagehash.average_hash(img)
-        def d_hash(self, img):
-            return imagehash.dhash(img)
-        def p_hash(self, img):
-            return imagehash.phash(img)
-        def w_hash(self, img):
-            return imagehash.whash(img)
-
-        # compare method
-        # Compares two image portions with given co-ordinates
-        def compare(self, x1, y1, x2, y2):
-            # At first crop the image portions
-            a1_img = self.img_a.img.crop( (x1, y1, x2, y2) )
-            b1_img = self.img_b.img.crop( (x1, y1, x2, y2) )
-
-            hash_a =  self.switcher[self.algorithm](a1_img)
-            hash_b =  self.switcher[self.algorithm](b1_img)
-            diff =  hash_b-hash_a
-
-            if diff == 0:
-                # Two images are similar by hash
-                # Now check their pixel's color
-                color1 = a1_img.getpixel((2,3))
-                color2 = b1_img.getpixel((2,3))
-                if color1 == color2:
-                    # Two imeages color is also same
-                    return
-                else:
-                    # Pixel's color is not same
-                    # Images are similar by hash, but not similar by color
-                    # So, Save
-                    blend_img = self.img_a.blendImage(x1, y1, x2, y2, diff)
-                    # Blending the second image part
-                    self.img_a.reconstruction(blend_img, x1, y1)
-                    # Increase dissimilar portion count
-                    self.count = self.count+1      
-                    return
-
-            else: 
-                self.divide(x1, y1, x2, y2, diff)
-                return
-
-        # divide method
-        # Take image co-ordinates as parameter
-        def divide(self, x1, y1, x2, y2, diff):   
-            # First, find out width and height of image
-            width = x2-x1
-            height = y2-y1
-
-            # return and save if image is less than 8px
-            if width<=8 or height<=8:  
-                # print(diff)
-                blend_img = self.img_a.blendImage(x1, y1, x2, y2, diff)
-                # Blending the second image part
-                self.img_a.reconstruction(blend_img, x1, y1)
-                # Increase dissimilar portion count
-                self.count = self.count+1      
-                return
-            # Divide the image with larger side
-            elif width>=height:
-                # int() is used just to convert 1.0 to 1
-                portion = int(width/2) if (width%2)==0 else int((width)/2)+1
-                # Calculate co-ordinates of two image portion
-                co_or_1 = [x1, y1, x1+portion, y2]
-                co_or_2 = [x1+portion+1, y1, x2, y2]
-            else: 
-                # int() is used just to convert 1.0 to 1
-                portion = int(height/2) if (height%2)==0 else int((height)/2)+1
-                # Calculate co-ordinates of two image portion
-                co_or_1 = [x1, y1, x2, y1+portion]
-                co_or_2 = [x1, y1+portion+1, x2, y2]
-
-            # Calling compare method with image co-ordinates as arguments
-            self.compare(co_or_1[0], co_or_1[1], co_or_1[2], co_or_1[3])
-            self.compare(co_or_2[0], co_or_2[1], co_or_2[2], co_or_2[3])
-            return
-
-    controller = RecursiveController("chrome.png", "firefox.png", "phash")
     # Calling divide method of init Object with image co-ordinates
-    controller.divide(0, 0, controller.img_a.width, controller.img_a.height, 0)
-    controller.img_a.saveToReconstruct()
-    controller.img_a.img.show()
+    controller2.divide(0, 0, controller2.ref_image.width, controller2.ref_image.height, 0)
+    controller2.ref_image.save_output()
+    controller2.ref_image.img.show()
 
 
 @cli.command()

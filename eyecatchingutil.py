@@ -122,25 +122,23 @@ class MetaImage2:
         self.name = name
         self.width, self.height = self.img.size
 
-    # blendImage Method
     # Takes image co-ordinates
-    # Now, just blend the image "B" and return
-    def blendImage(self, x1, y1, x2, y2, diff):
+    def blend_image(self, x1, y1, x2, y2, diff):
         # Crop the image with given co-ordinates
-        img1 = self.img.crop( (x1, y1, x2, y2) )
-        opacity = diff/100 + 0.3 # thus it will be 0.3>opacity<0.93
-        img_bottom = img1.convert("RGB")
-        img_top = Image.new("RGB", img1.size, "salmon")
+        img_slice = self.img.crop( (x1, y1, x2, y2) )
+        opacity = diff / 100 + 0.3  # thus it will be 0.3>opacity<0.93
+        img_bottom = img_slice.convert("RGB")
+        img_top = Image.new("RGB", img_slice.size, "salmon")
         blended_img = Image.blend(img_bottom, img_top, opacity)
         return blended_img
     
     # Pasting blended part to original image
-    def reconstruction(self, paste_img, x1, y1):
+    def reconstruct(self, paste_img, x1, y1):
         self.img.paste(paste_img, (x1, y1))
 
     # Saving the Reconstructed Image
-    def saveToReconstruct(self):
-        self.img.save("reconstruct.png")
+    def save_output(self):
+        self.img.save("output_recursive.png")
 
 
 class ImageComparator:
@@ -383,6 +381,9 @@ class ChromeScreenshot(BrowserScreenshot):
 
 
 class Controller:
+
+    outputname = "output.png"
+
     def __init__(self):
         self.image_chrome = ChromeScreenshot()
         self.image_firefox = FirefoxScreenshot()
@@ -474,7 +475,7 @@ class Controller:
             canvas.paste(slice.image, slice.get_coordinates())
             del slice
 
-        saving_name = "output" + "_" + compare_img
+        saving_name = "output_{0}_{1}_{2}.png".format(ref_img, compare_img, algorithm)
         canvas.save(saving_name)
         print("Info: \tResulted file saved as {0}".format(saving_name))
         return canvas
@@ -500,3 +501,99 @@ class Controller:
         self.image_firefox.take_shot(url)
         # pass the height got from firefox
         self.image_chrome.take_shot(url, self.image_firefox.height)
+
+
+
+
+
+class RecursiveController:
+
+    threshold = 8
+    algorithm = "ahash"
+
+    def __init__(self):
+        self.image_chrome = ChromeScreenshot()
+        self.image_firefox = FirefoxScreenshot()
+        self.ref_image = MetaImage2(Image.open(self.image_chrome.imagename), "A")
+        self.com_image = MetaImage2(Image.open(self.image_firefox.imagename), "B")
+        self.count = 0
+        self.switcher = {
+            'ahash': self.a_hash,
+            'dhash': self.d_hash,
+            'phash': self.p_hash,
+            'whash': self.w_hash
+        }
+
+    # Methods for selecting given hashing algorithm by switcher
+    def a_hash(self, img):
+        return imagehash.average_hash(img)
+    def d_hash(self, img):
+        return imagehash.dhash(img)
+    def p_hash(self, img):
+        return imagehash.phash(img)
+    def w_hash(self, img):
+        return imagehash.whash(img)
+
+    # Compares two image portions with given co-ordinates
+    def compare(self, x1, y1, x2, y2):
+        # At first crop the image portions
+        ref_img_slice = self.ref_image.img.crop( (x1, y1, x2, y2) )
+        com_img_slice = self.com_image.img.crop( (x1, y1, x2, y2) )
+
+        hash_a =  self.switcher[self.algorithm](ref_img_slice)
+        hash_b =  self.switcher[self.algorithm](com_img_slice)
+        diff =  hash_b - hash_a
+
+        if diff == 0:
+            # Two images are similar by hash
+            # Now check their pixel's color
+            color1 = ref_img_slice.getpixel((2,3))
+            color2 = com_img_slice.getpixel((2,3))
+            if color1 == color2:
+                # Two imeages color is also same
+                return
+            else:
+                # Pixel's color is not same
+                # Images are similar by hash, but not similar by color
+                blend_img = self.ref_image.blend_image(x1, y1, x2, y2, diff)
+                # Blending the second image part
+                self.ref_image.reconstruct(blend_img, x1, y1)
+                # Increase dissimilar portion count
+                self.count = self.count+1      
+                return
+        else:
+            # go inside and compare again
+            self.divide(x1, y1, x2, y2, diff)
+            return
+
+    # Take image co-ordinates as parameter
+    def divide(self, x1, y1, x2, y2, diff):   
+        width = x2-x1
+        height = y2-y1
+
+        # return and save if image is less than 8px
+        if width <= self.threshold or height <= self.threshold:  
+            blend_img = self.ref_image.blend_image(x1, y1, x2, y2, diff)
+            # Blending the second image part
+            self.ref_image.reconstruct(blend_img, x1, y1)
+            # Increase dissimilar portion count
+            self.count = self.count+1      
+            return
+        # Divide the image with larger side
+        elif width>=height:
+            # int() is used just to convert 1.0 to 1
+            portion = int(width/2) if (width%2)==0 else int((width)/2)+1
+            # Calculate co-ordinates of two image portion
+            co_or_1 = [x1, y1, x1+portion, y2]
+            co_or_2 = [x1+portion+1, y1, x2, y2]
+        else: 
+            # int() is used just to convert 1.0 to 1
+            portion = int(height/2) if (height%2)==0 else int((height)/2)+1
+            # Calculate co-ordinates of two image portion
+            co_or_1 = [x1, y1, x2, y1+portion]
+            co_or_2 = [x1, y1+portion+1, x2, y2]
+
+        # Calling compare method with image co-ordinates as arguments
+        self.compare(co_or_1[0], co_or_1[1], co_or_1[2], co_or_1[3])
+        self.compare(co_or_2[0], co_or_2[1], co_or_2[2], co_or_2[3])
+        return
