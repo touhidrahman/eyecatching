@@ -27,15 +27,15 @@ class MetaImage:
         self.height = self.image.size[1]
         self.ext = self.imagename.split(".")[1]
         if len(namebits) > 1:
-            self.left       = int(namebits[1])
-            self.top        = int(namebits[2])
-            self.right      = int(namebits[3])
-            self.bottom     = int(namebits[4])
+            self.x1eft       = int(namebits[1])
+            self.y1op        = int(namebits[2])
+            self.x2ight      = int(namebits[3])
+            self.y2ottom     = int(namebits[4])
         else:
-            self.left = 0
-            self.top = 0
-            self.right = self.width
-            self.bottom = self.height
+            self.x1eft = 0
+            self.y1op = 0
+            self.x2ight = self.width
+            self.y2ottom = self.height
 
     def get_prefix(self):
         raw_prefix = self.imagename.split(".")[0]
@@ -47,31 +47,31 @@ class MetaImage:
 
     def get_coordinates(self):
         return (
-            self.left, self.top,
-            self.right, self.bottom
+            self.x1eft, self.y1op,
+            self.x2ight, self.y2ottom
         )
 
     def left_half(self):
         return (
-            self.left, self.top,
+            self.x1eft, self.y1op,
             int(self.width/2), self.height
         )
 
     def right_half(self):
         return (
-            int(self.width/2), self.top,
+            int(self.width/2), self.y1op,
             self.width, self.height
         )
 
     def top_half(self):
         return (
-            self.left, self.top,
+            self.x1eft, self.y1op,
             self.width, int(self.height/2)
         )
 
     def bottom_half(self):
         return (
-            self.left, int(self.height/2), 
+            self.x1eft, int(self.height/2), 
             self.width, self.height
         )
 
@@ -83,23 +83,23 @@ class MetaImage:
 
     def first_half(self):
         if self.is_landscape():
-            return self.left_half()
+            return self.x1eft_half()
         if self.is_potrait():
-            return self.top_half()
+            return self.y1op_half()
 
     def second_half(self):
         if self.is_landscape():
-            return self.right_half()
+            return self.x2ight_half()
         if self.is_potrait():
-            return self.bottom_half()
+            return self.y2ottom_half()
 
     def format_name(self):
         return "{0}_{1}_{2}_{3}_{4}_.{5}".format(
             self.prefix, 
-            self.top, 
-            self.left,
-            self.bottom, 
-            self.right, 
+            self.y1op, 
+            self.x1eft,
+            self.y2ottom, 
+            self.x2ight, 
             self.ext
         )
 
@@ -229,7 +229,7 @@ class MetaImage2:
         if self.width > self.height:
             bigger = self.width
 
-        if bigger >= MetaImage.LIMIT * 2:
+        if bigger >= MetaImage2.LIMIT * 2:
             self.save_first_half()
             self.save_second_half()
             return (
@@ -287,10 +287,10 @@ class ImageComparator:
 
 class Coordinates:
     def __init__(self, l, t, r, b):
-        self.l = l
-        self.t = t
-        self.r = r
-        self.b = b
+        self.x1 = l
+        self.y1 = t
+        self.x2 = r
+        self.y2 = b
         mid_x = int(abs(t - b) / 2)
         mid_y = int(abs(l - r) / 2)
         if mid_x % 2 == 0:
@@ -304,61 +304,57 @@ class Coordinates:
 
     def as_tuple(self):
         return (
-            self.l, self.t,
-            self.r, self.b
+            self.x1, self.y1,
+            self.x2, self.y2
         )
 
-    def shift_horizontally(self, pixels: int):
-        self.l += pixels
-        self.r += pixels
+    def add_to_right(self, pixels: int):
         return (
-            self.l, self.t,
-            self.r, self.b
+            self.x1,            self.y1,
+            self.x2 + pixels,   self.y2
         )
 
-    def shift_vertically(self, pixels: int):
-        self.t += pixels
-        self.b += pixels
+    def add_to_bottom(self, pixels: int):
         return (
-            self.l, self.t,
-            self.r, self.b 
+            self.x1,        self.y1,
+            self.x2,        self.y2 + pixels 
         )
 
     def left_half(self):
         return (
-            self.l,     self.t,
-            self.mid_x, self.b
+            self.x1,    self.y1,
+            self.mid_x, self.y2
         )
 
     def right_half(self):
         return (
-            self.mid_x, self.t,
-            self.r,     self.b
+            self.mid_x, self.y1,
+            self.x2,     self.y2
         )
 
     def top_half(self):
         return (
-            self.l,     self.t,
-            self.r,     self.mid_y
+            self.x1,     self.y1,
+            self.x2,     self.mid_y
         )
 
     def bottom_half(self):
         return (
-            self.l,     self.mid_y,
-            self.r,     self.b
+            self.x1,     self.mid_y,
+            self.x2,     self.y2
         )
 
     # def distance_x(self, c: Coordinates):
-    #     return abs(self.l - c.l)
+    #     return abs(self.x1 - c.l)
 
     # def distance_y(self, c: Coordinates):
-    #     return abs(self.t - c.t)
+    #     return abs(self.y1 - c.t)
 
     def is_potrait(self):
-        return abs(self.r - self.l) <= abs(self.b - self.t)
+        return abs(self.x2 - self.x1) <= abs(self.y2 - self.y1)
 
     def is_landscape(self):
-        return abs(self.r - self.l) >= abs(self.b - self.t)
+        return abs(self.x2 - self.x1) >= abs(self.y2 - self.y1)
 
     def first_half(self):
         if self.is_landscape():
@@ -371,3 +367,74 @@ class Coordinates:
             return self.right_half()
         if self.is_potrait():
             return self.bottom_half()
+
+
+
+
+
+class BrowserScreenshot:
+
+    width = 1280
+    height = 0
+    ext = '.png'
+
+    def __init__(self, name):
+        self.name = name
+        self.imagename = name + self.ext
+
+    def size(self):
+        return (self.width, self.height)
+
+    def remove_pixels_right(self, pixels:int):
+        """
+        Subtract given pixels from right side of the image 
+        and replace the original file.
+        Used to remove scrollbar pixels.
+        """
+        img = Image.open(self.imagename)
+        w, h = img.size
+        c = Coordinates(0, 0, w, h)
+        newimg = img.crop(c.add_to_bottom(-pixels))
+        img.close()
+        newimg.save(self.imagename)
+        self.height = newimg.size[0]
+# TODO:
+        print("Removed {0} pixels from the right side of image {1}".format(pixels, self.imagename))
+
+
+
+class FirefoxScreenshot(BrowserScreenshot):
+    def __init__(self):
+        super().__init__('firefox')
+
+    def take(self, url):
+        """ Take screenshot using Firefox """
+        window_size = "--window-size={0}".format(self.width + 10)
+        subprocess.call(["firefox",
+                        "-screenshot",
+                        window_size,
+                        url])
+        # rename the output file
+        os.rename("screenshot.png", self.imagename)
+        # remove the scrolbar 
+        self.remove_pixels_right(10)
+        print("Saved screenshot from Firefox with name {0}".format(self.imagename))
+
+
+class ChromeScreenshot(BrowserScreenshot):
+    def __init__(self):
+        super().__init__('chrome')
+
+    def take(self, url, height):
+        """ Take screenshot using Chrome """
+        # chrome expects full viewport size
+        self.height = height
+        window_size = "--window-size={0},{1}".format(self.width, self.height)
+        subprocess.call(["/opt/google/chrome/chrome",
+                            "--headless",
+                            "--hide-scrollbars",
+                            window_size,
+                            "--screenshot",
+                            url])
+        os.rename("screenshot.png", self.imagename)
+        print("Saved screenshot from Chrome with name {0}".format(self.imagename))

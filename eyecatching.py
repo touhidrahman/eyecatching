@@ -7,10 +7,19 @@ import click
 from PIL import Image
 from urllib.parse import urlparse
 from eyecatchingutil import MetaImage
+from eyecatchingutil import BrowserScreenshot
+from eyecatchingutil import FirefoxScreenshot
+from eyecatchingutil import ChromeScreenshot
 
 image_chrome = "chrome.png"
 image_firefox = "firefox.png"
 image_size = {'width': 1280}
+
+
+class Container:
+    def __init__(self):
+        pass
+
 
 @click.group()
 def cli():
@@ -18,7 +27,7 @@ def cli():
     Tests the frontend of a website/webapp by comparing screenshots
     captured from different browsers (at present Chrome and Firefox).
 
-        $ eyecatching linear <URL> [--option value]
+        $ eyecatching linear <URL> [--option value]\n
         $ eyecatching recur <URL> [--option value]
 
     For example:
@@ -32,26 +41,32 @@ def cli():
 @click.argument('t', default="test")
 def test(t):
     print(t)
+    a = ChromeScreenshot()
+    a.take(t, 1600)
 
 
 @cli.command()
-@click.argument('url', default="")
-@click.option('--factor', default=20,
+@click.argument('url')
+@click.option('--factor',
+            default=20,
             help="Tile block size, px. \n(Default: 20)")
-@click.option('--width', default=1280,
-            help="Viewport width, px. \n(Default: 1280)")
-@click.option('--algorithm', default="ahash",
+@click.option('--algorithm',
+            default="ahash",
             help="Perceptual hashing algorithm to be used. \n(Default: ahash) \nAvailable: ahash, phash, dhash, whash")
-@click.option('--ref-browser', default="chrome",
+@click.option('--ref-browser',
+            default="chrome",
             help="Reference browser \n(Default: chrome) \nAvailable: chrome, firefox")
 @click.option('--output', help="Name for the output file.")
+@click.option('--width',
+            default=1280,
+            help="Viewport width, px. \n(Default: 1280)")
 def linear(
     url,
     factor,
-    width = 1280,
     algorithm,
     ref_browser,
-    output
+    output,
+    width = 1280
     ):
     """
     - Test two screenshots using linear approach
@@ -113,8 +128,9 @@ def get_image_size(filename):
     return size
 
 @cli.command()
-@click.argument('url', default="")
-@click.option('--width', default=1280,
+@click.argument('url')
+@click.option('--width',
+            default=1280,
             help="Viewport width, px. \n(Default: 1280)")
 def screenshot(
     url,
@@ -131,12 +147,20 @@ def screenshot(
         print("Invalid URL! Please input a valid URL.")
         exit()
 
-    size = get_firefox_screenshot(url, width)
-    image_size['height'] = size[1]
-    get_chrome_screenshot(url, width, size[1])    
+    ff = FirefoxScreenshot()
+    ff.take(url)
+    ht = ff.height
+    print(ht)
+    
+    ch = ChromeScreenshot()
+    ch.take(url, ht)
 
-
-def get_firefox_screenshot(url, width):
+@cli.command()
+@click.argument('url', default="")
+@click.option('--width',
+            default=1280,
+            help="Viewport width, px. \n(Default: 1280)")
+def get_firefox_screenshot(url, width, imagename = image_firefox):
     """
     Get firefox screenshot and return image size
     """
@@ -147,14 +171,14 @@ def get_firefox_screenshot(url, width):
                     window_size,
                     url])
     # rename the output file
-    os.rename("screenshot.png", image_firefox)
+    os.rename("screenshot.png", imagename)
     # remove the scrolbar 
-    remove_pixels_right(image_firefox, 10)
-    print("Saved screenshot from Firefox with name {0}".format(image_firefox))
-    return get_image_size(image_firefox)
+    remove_pixels_right(imagename, 10)
+    print("Saved screenshot from Firefox with name {0}".format(imagename))
+    return get_image_size(imagename)
 
 
-def get_chrome_screenshot(url:str, width:int, height:int):
+def get_chrome_screenshot(url:str, width:int, height:int, imagename = image_chrome):
     """
     Get chrome screenshot and return image size
     """
@@ -186,8 +210,6 @@ def remove_pixels_right(image: str, pixels: int):
 def extend_image(image: str, factor: int):
     """
     Extend the image to be equally divisible by factor
-    :type image: str
-    :type factor: int
     """
     wd, ht = get_image_size(image)
     ex_wd = factor - (wd % factor)
