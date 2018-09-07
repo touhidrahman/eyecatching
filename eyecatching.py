@@ -152,12 +152,9 @@ def recursive(
 @click.option('--width',
             default=1280,
             help="Viewport width, px. \n(Default: 1280)")
-@click.option('--height',
-            help="Viewport height, px. Only required for Chrome")
 def screenshot(
     url,
     width,
-    height = 0,
     browser = "chrome, firefox",
     ):
     """
@@ -182,42 +179,34 @@ def screenshot(
         print("Error: \tNo browser provided!")
         exit()
 
-    ht = height
-
     if has_firefox:
         ff = FirefoxScreenshot()
         ff.take_shot(url)
-        ht = ff.height
     
     if has_chrome:
-        if ht:
-            ch = ChromeScreenshot()
-            ch.take_shot(url, ht)
-        else:
-            print("Error: \tNo value for height given for Chrome")
-            exit()
+        ch = ChromeScreenshot()
+        ch.take_shot_puppeteer(url)
 
 
-
-
-
-
-
-
+@cli.command()
+def normalize_images():
+    """
+    - Make 2 images equal height
+    """
+    pass
 
 
 @cli.command()
 def reset():
     """
-    - Remove old output files
+    - Remove all input and output files
     """
     for f in os.listdir("."):
         if f.endswith(".jpg") or f.endswith(".jpeg") or f.endswith(".png"):
             os.remove(f)
-            if os.path.exists(f):
-                shutil.rmtree(f.split(".")[0])
-            if f.startswith("output"):
-                os.remove(f)
+            folder = f.split(".")[0]
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
     print('All input/output images and directories removed.')
 
 
