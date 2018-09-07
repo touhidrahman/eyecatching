@@ -422,7 +422,7 @@ class BrowserScreenshot:
         img.close()
         os.remove(self.imagename)
         newimg.save(self.imagename)
-        self.height = newimg.size[0]
+        self.height = newimg.size[1]
         print("Info: \tRemoved {0} pixels from the right side of image {1}".format(pixels, self.imagename))
 
     def extend_image(self, factor: int):
