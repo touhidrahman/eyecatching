@@ -11,18 +11,132 @@ from eyecatchingutil import BrowserScreenshot
 from eyecatchingutil import FirefoxScreenshot
 from eyecatchingutil import ChromeScreenshot
 
-image_chrome = "chrome.png"
-image_firefox = "firefox.png"
-image_size = {'width': 1280}
 
 
 class Container:
     def __init__(self):
-        pass
+        self.image_chrome = ChromeScreenshot()
+        self.image_firefox = FirefoxScreenshot()
 
+    def tile_image(self, filename: str, edge: int):
+        """
+        Slice image into tiles with meaningful naming
+        and move them into a directory named as original image
+        """
+        counter = 0
+        img = MetaImage(filename)
+
+        # remove directory if already exists
+        if os.path.isdir(img.prefix):
+            shutil.rmtree(img.prefix)
+
+        os.mkdir(img.prefix)
+
+        print("Info: \tSlicing image {0} into {1} x {1} pixel tiles".format(filename, edge))
+
+        for x in range(0, img.width, edge):
+            for y in range(0, img.height, edge):
+                coords = (x, y, x + edge, y + edge)
+                cropped_img = img.image.crop(coords)
+                cropped_filename = "{0}/{0}_{1}_{2}_{3}_{4}_.{5}".format(
+                    img.prefix,
+                    x,
+                    y,
+                    x + edge,
+                    y + edge,
+                    img.ext
+                )
+                cropped_img.save(cropped_filename)
+                counter = counter + 1
+                del cropped_img
+
+        print("Info: \tGenerated {0} images in directory {1}".format(counter, img.prefix))
+
+    def mark_image(self, image: str, opacity: float, color:str = "salmon"):
+        """
+        Mask image with a color
+        """
+        img_bottom = Image.open(image).convert("RGB")
+        img_top = Image.new("RGB", img_bottom.size, color)
+        blended = Image.blend(img_bottom, img_top, opacity)
+        blended.save(image)
+
+        del img_bottom, img_top, blended
+
+    def compare_tiles(self, ref_dir, compare_dir, algorithm):
+        """
+        Compares tiles and marks different tiles in comparing directory
+        """
+        path = os.getcwd() + "/" + compare_dir
+
+        for tile in os.listdir(path):
+            tile_ref_img = ref_dir + "/" + tile.replace(compare_dir, ref_dir)
+            tile_com_img = compare_dir + "/" + tile
+            hash_diff = self.get_hash_diff(tile_ref_img, tile_com_img, algorithm)
+
+            opacity = 0
+            if hash_diff >= 20 and hash_diff < 39:
+                opacity = 0.3
+            if hash_diff >= 40 and hash_diff < 49:
+                opacity = 0.4
+            if hash_diff >= 50 and hash_diff < 59:
+                opacity = 0.5
+            if hash_diff >= 60:
+                opacity = 0.6
+
+            # opacity = hash_diff / 100
+
+            if opacity != 0:
+                self.mark_image(tile_com_img, opacity)
+
+    def remake_image(self, ref_img, compare_img, algorithm):
+        print("Info: \tMarking visual differences from reference image...")
+        r_img = MetaImage(ref_img)
+        c_img = MetaImage(compare_img)
+        canvas = Image.new("RGB", c_img.size, "white")
+        dir_ref = r_img.prefix
+        dir_com = c_img.prefix
+        path = os.getcwd() + "/" + dir_com
+
+        self.compare_tiles(dir_ref, dir_com, algorithm)
+
+        for filename in os.listdir(path):
+            slice = MetaImage(filename)
+            canvas.paste(slice.image, slice.get_coordinates())
+            del slice
+
+        saving_name = "output" + "_" + compare_img
+        canvas.save(saving_name)
+        print("Info: \tResulted file saved as {0}".format(saving_name))
+        return canvas
+
+    def get_hash_diff(self, image1, image2, algorithm):
+        """
+        Get the hamming distance of two images
+        """
+        switcher = {
+            'ahash': imagehash.average_hash,
+            'phash': imagehash.phash,
+            'dhash': imagehash.dhash,
+            'whash': imagehash.whash,
+        }
+        img1 = Image.open(image1)
+        img2 = Image.open(image2)
+        hash1 = switcher[algorithm](img1)
+        hash2 = switcher[algorithm](img2)
+        del img1, img2
+        return abs(hash1 - hash2)
+
+    def get_screenshot(self, url):
+        self.image_firefox.take_shot(url)
+        # pass the height got from firefox
+        self.image_chrome.take_shot(url, self.image_firefox.height)
+
+pass_container = click.make_pass_decorator(Container, ensure = True)
 
 @click.group()
-def cli():
+@pass_container
+def cli(container):
     """
     Tests the frontend of a website/webapp by comparing screenshots
     captured from different browsers (at present Chrome and Firefox).
@@ -39,10 +153,11 @@ def cli():
 
 @cli.command()
 @click.argument('t', default="test")
-def test(t):
-    print(t)
-    a = FirefoxScreenshot()
-    a.take(t)
+@pass_container
+def test(container, t):
+    print(container.image_chrome.name)
+    c = ChromeScreenshot()
+    c.take_shot(t, 1280)
 
 
 @cli.command()
@@ -60,17 +175,18 @@ def test(t):
 @click.option('--width',
             default=1280,
             help="Viewport width, px. \n(Default: 1280)")
+@pass_container
 def linear(
+    container,
     url,
     factor,
     algorithm,
     ref_browser,
     output,
-    width = 1280
+    width,
     ):
     """
     - Test two screenshots using linear approach
-
     """
 
     if url == "":
@@ -85,33 +201,31 @@ def linear(
         print("Factor is too small! Please use a value above 8")
         exit()
 
-    print('Working....')
+    print('Eyecatching is working....')
 
-    # image_size = {'width': viewport_width}
-
-    screenshot(url, width)
-
-    print("Resulted image size is {0} x {1}".format(image_size['width'], image_size['height']))
+    container.get_screenshot(url)
 
     # extend images to cut precisely
-    extend_image(image_chrome, factor)
-    extend_image(image_firefox, factor)
+    print("Info: \tExtending images with white canvas to work with block size")
+    container.image_chrome.extend_image(factor)
+    container.image_firefox.extend_image(factor)
 
     # slice to tiles
-    tile_image(image_chrome, factor)
-    tile_image(image_firefox, factor)
+    container.tile_image(container.image_chrome.imagename, factor)
+    container.tile_image(container.image_firefox.imagename, factor)
 
     if ref_browser == "chrome":
-        ref_img = image_chrome
-        comp_img = image_firefox
+        ref_img = container.image_chrome.imagename
+        comp_img = container.image_firefox.imagename
     if ref_browser == "firefox":
-        ref_img = image_firefox
-        comp_img = image_chrome
+        ref_img = container.image_firefox.imagename
+        comp_img = container.image_chrome.imagename
 
     # join slices
-    remake_image(ref_img, comp_img, algorithm)
+    output = container.remake_image(ref_img, comp_img, algorithm)
 
-    print("Done.")
+    print("Eyecathing process completed.")
+    output.show()
 
 
 @cli.command()
@@ -169,141 +283,30 @@ def screenshot(
 
     if has_firefox:
         ff = FirefoxScreenshot()
-        print("Info: \tGetting screenshot from Firefox browser")
         ff.take_shot(url)
-        print("Info: \tSaved screenshot from Firefox with name {0}".format(ff.imagename))
 
     if ht is None or ht == 0:
         ht = ff.height
     
     if has_chrome:
         if ht:
-            print("Info: \tGetting screenshot from Chrome browser")
             ch = ChromeScreenshot()
             ch.take_shot(url, ht)
-            print("Info: \tSaved screenshot from Chrome with name {0}".format(ch.imagename))
         else:
             print("Error: \tNo value for height given for Chrome")
             exit()
 
 
 
-def tile_image(filename: str, edge: int):
-    """
-    Slice image into tiles with meaningful naming
-    and move them into same name directory
-    """
-    counter = 0
-    img = MetaImage(filename)
-
-    if os.path.isdir(img.prefix):
-        shutil.rmtree(img.prefix)
-
-    os.mkdir(img.prefix)
-
-    print("Slicing image {0} into {1} x {1} pixel tiles".format(filename, edge))
-
-    for x in range(0, img.width, edge):
-        for y in range(0, img.height, edge):
-            coords = (x, y, x + edge, y + edge)
-            cropped_img = img.image.crop(coords)
-            cropped_filename = "{0}/{0}_{1}_{2}_{3}_{4}_.{5}".format(
-                img.prefix,
-                x,
-                y,
-                x + edge,
-                y + edge,
-                img.ext
-            )
-            cropped_img.save(cropped_filename)
-            counter = counter + 1
-            del cropped_img
-
-    print("Generated {0} images in directory {1}".format(counter, img.prefix))
 
 
 
-def mark_image(image: str, opacity: float):
-    """
-    Mask image with a color
-    """
-    img_bottom = Image.open(image).convert("RGB")
-    img_top = Image.new("RGB", img_bottom.size, "salmon")
-    blended = Image.blend(img_bottom, img_top, opacity)
-    blended.save(image)
-
-    del img_bottom, img_top, blended
 
 
-def compare_tiles(ref_dir, compare_dir, algorithm):
-    """
-    Compares tiles and marks different tiles in comparing directory
-    """
-    path = os.getcwd() + "/" + compare_dir
 
-    for tile in os.listdir(path):
-        tile_ref_img = ref_dir + "/" + tile.replace(compare_dir, ref_dir)
-        tile_com_img = compare_dir + "/" + tile
-        hash_diff = get_hash_diff(tile_ref_img, tile_com_img, algorithm)
-
-        opacity = 0
-        if hash_diff >= 30 and hash_diff < 39:
-            opacity = 0.3
-        if hash_diff >= 40 and hash_diff < 49:
-            opacity = 0.4
-        if hash_diff >= 50 and hash_diff < 59:
-            opacity = 0.5
-        if hash_diff >= 60 and hash_diff < 69:
-            opacity = 0.6
-        if hash_diff >= 70:
-            opacity = 0.7
-
-        # opacity = hash_diff / 100
-
-        if opacity != 0:
-            mark_image(tile_com_img, opacity)
-
-
-def remake_image(ref_img, compare_img, algorithm):
-    print("Marking visual differences from reference image...")
-    r_img = MetaImage(ref_img)
-    c_img = MetaImage(compare_img)
-    canvas = Image.new("RGB", c_img.size, "white")
-    dir_ref = r_img.prefix
-    dir_com = c_img.prefix
-    path = os.getcwd() + "/" + dir_com
-
-    compare_tiles(dir_ref, dir_com, algorithm)
-
-    for filename in os.listdir(path):
-        slice = MetaImage(filename)
-        canvas.paste(slice.image, slice.get_coordinates())
-        del slice
-
-    saving_name = "output" + "_" + compare_img
-    canvas.save(saving_name)
-    print("Resulted file saved as {0}".format(saving_name))
-
-
-def get_hash_diff(image1, image2, algorithm):
-    """
-    Get the hamming distance of two images
-    """
-    switcher = {
-        'ahash': imagehash.average_hash,
-        'phash': imagehash.phash,
-        'dhash': imagehash.dhash,
-        'whash': imagehash.whash,
-    }
-    img1 = Image.open(image1)
-    img2 = Image.open(image2)
-    hash1 = switcher[algorithm](img1)
-    hash2 = switcher[algorithm](img2)
-    del img1, img2
-    return abs(hash1 - hash2)
 
 @cli.command()
-def reset(images = [image_chrome, image_firefox]):
+def reset(images = []):
     """
     - Remove old output files
     """
