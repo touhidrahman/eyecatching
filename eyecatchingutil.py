@@ -367,6 +367,10 @@ class ChromeScreenshot(BrowserScreenshot):
         print("Info: \tInitial image size: {0} x {1}".format(self.width, self.height))
 
     def take_shot_puppeteer(self, url):
+        """
+        Take screenshot using Puppeteer
+        """
+        print("Info: \tGetting screenshot from Chrome browser")
         subprocess.call(["node",
                         "puppeteer.js",
                         url,
