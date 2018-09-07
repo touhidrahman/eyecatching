@@ -123,7 +123,8 @@ class MetaImage2:
         self.width, self.height = self.img.size
 
     # Takes image co-ordinates
-    def blend_image(self, x1, y1, x2, y2, diff):
+    def blend_image(self, patch_coords, diff):
+        (x1, y1, x2, y2) = patch_coords
         # Crop the image with given co-ordinates
         img_slice = self.img.crop( (x1, y1, x2, y2) )
         opacity = diff / 100 + 0.3  # thus it will be 0.3>opacity<0.93
@@ -133,7 +134,7 @@ class MetaImage2:
         return blended_img
     
     # Pasting blended part to original image
-    def reconstruct(self, paste_img, x1, y1):
+    def paste_patch(self, paste_img, x1, y1):
         self.img.paste(paste_img, (x1, y1))
 
     # Saving the Reconstructed Image
@@ -189,16 +190,12 @@ class Coordinates:
         self.y1 = t
         self.x2 = r
         self.y2 = b
+        self.width = abs(r - l)
+        self.height = abs(b - t)
         mid_x = int(abs(t - b) / 2)
         mid_y = int(abs(l - r) / 2)
-        if mid_x % 2 == 0:
-            self.mid_x = mid_x
-        else:
-            self.mid_x = mid_x + 1
-        if mid_y % 2 == 0:
-            self.mid_y = mid_y
-        else:
-            self.mid_y = mid_y + 1
+        self.mid_x = mid_x if (self.width % 2) == 0 else mid_x + 1
+        self.mid_y = mid_y if (self.height % 2) == 0 else mid_y + 1
 
     def as_tuple(self):
         return (
@@ -220,33 +217,27 @@ class Coordinates:
 
     def left_half(self):
         return (
-            self.x1,    self.y1,
-            self.mid_x, self.y2
+            self.x1,                self.y1,
+            self.x1 + self.mid_x,   self.y2
         )
 
     def right_half(self):
         return (
-            self.mid_x, self.y1,
-            self.x2,     self.y2
+            self.x1 + self.mid_x,   self.y1,
+            self.x2,                self.y2
         )
 
     def top_half(self):
         return (
-            self.x1,     self.y1,
-            self.x2,     self.mid_y
+            self.x1,        self.y1,
+            self.x2,        self.y1 + self.mid_y
         )
 
     def bottom_half(self):
         return (
-            self.x1,     self.mid_y,
-            self.x2,     self.y2
+            self.x1,        self.y1 + self.mid_y,
+            self.x2,        self.y2
         )
-
-    # def distance_x(self, c: Coordinates):
-    #     return abs(self.x1 - c.l)
-
-    # def distance_y(self, c: Coordinates):
-    #     return abs(self.y1 - c.t)
 
     def is_potrait(self):
         return abs(self.x2 - self.x1) <= abs(self.y2 - self.y1)
@@ -375,8 +366,15 @@ class ChromeScreenshot(BrowserScreenshot):
         print("Info: \tSaved screenshot from Chrome with name {0}".format(self.imagename))
         print("Info: \tInitial image size: {0} x {1}".format(self.width, self.height))
 
-
-
+    def take_shot_puppeteer(self, url):
+        subprocess.call(["node",
+                        "puppeteer.js",
+                        url,
+                        str(self.width)])
+        os.rename("screenshot.png", self.imagename)
+        self.height = Image.open(self.imagename).size[1]
+        print("Info: \tSaved screenshot from Chrome with name {0}".format(self.imagename))
+        print("Info: \tInitial image size: {0} x {1}".format(self.width, self.height))        
 
 
 
@@ -499,8 +497,7 @@ class Controller:
 
     def get_screenshot(self, url):
         self.image_firefox.take_shot(url)
-        # pass the height got from firefox
-        self.image_chrome.take_shot(url, self.image_firefox.height)
+        self.image_chrome.take_shot_puppeteer(url)
 
 
 
@@ -534,66 +531,49 @@ class RecursiveController:
     def w_hash(self, img):
         return imagehash.whash(img)
 
-    # Compares two image portions with given co-ordinates
-    def compare(self, x1, y1, x2, y2):
-        # At first crop the image portions
-        ref_img_slice = self.ref_image.img.crop( (x1, y1, x2, y2) )
-        com_img_slice = self.com_image.img.crop( (x1, y1, x2, y2) )
+    def compare(self, patch_coords):
+        """
+        Compares two image slice with given co-ordinates
+        """
+        x1, y1, x2, y2 = patch_coords
+
+        ref_img_slice = self.ref_image.img.crop(patch_coords)
+        com_img_slice = self.com_image.img.crop(patch_coords)
 
         hash_a =  self.switcher[self.algorithm](ref_img_slice)
         hash_b =  self.switcher[self.algorithm](com_img_slice)
         diff =  hash_b - hash_a
 
         if diff == 0:
-            # Two images are similar by hash
-            # Now check their pixel's color
+            # Two images are similar by hash, check their pixel's color
             color1 = ref_img_slice.getpixel((2,3))
             color2 = com_img_slice.getpixel((2,3))
-            if color1 == color2:
-                # Two imeages color is also same
-                return
-            else:
-                # Pixel's color is not same
-                # Images are similar by hash, but not similar by color
-                blend_img = self.ref_image.blend_image(x1, y1, x2, y2, diff)
-                # Blending the second image part
-                self.ref_image.reconstruct(blend_img, x1, y1)
+            # Images are similar by hash, but not similar by color
+            if color1 != color2:
+                blend_img = self.ref_image.blend_image(patch_coords, diff)
+                self.ref_image.paste_patch(blend_img, x1, y1)
                 # Increase dissimilar portion count
                 self.count = self.count+1      
                 return
         else:
             # go inside and compare again
-            self.divide(x1, y1, x2, y2, diff)
+            self.divide(patch_coords, diff)
             return
 
     # Take image co-ordinates as parameter
-    def divide(self, x1, y1, x2, y2, diff):   
-        width = x2-x1
-        height = y2-y1
+    def divide(self, initial_coords, diff):
+        (x1, y1, x2, y2) = initial_coords
+        coords = Coordinates(x1, y1, x2, y2)
 
         # return and save if image is less than 8px
-        if width <= self.threshold or height <= self.threshold:  
-            blend_img = self.ref_image.blend_image(x1, y1, x2, y2, diff)
-            # Blending the second image part
-            self.ref_image.reconstruct(blend_img, x1, y1)
+        if coords.width <= self.threshold or coords.height <= self.threshold:  
+            blend_img = self.ref_image.blend_image(initial_coords, diff)
+            self.ref_image.paste_patch(blend_img, x1, y1)
             # Increase dissimilar portion count
             self.count = self.count+1      
             return
         # Divide the image with larger side
-        elif width>=height:
-            # int() is used just to convert 1.0 to 1
-            portion = int(width/2) if (width%2)==0 else int((width)/2)+1
-            # Calculate co-ordinates of two image portion
-            co_or_1 = [x1, y1, x1+portion, y2]
-            co_or_2 = [x1+portion+1, y1, x2, y2]
         else: 
-            # int() is used just to convert 1.0 to 1
-            portion = int(height/2) if (height%2)==0 else int((height)/2)+1
-            # Calculate co-ordinates of two image portion
-            co_or_1 = [x1, y1, x2, y1+portion]
-            co_or_2 = [x1, y1+portion+1, x2, y2]
-
-        # Calling compare method with image co-ordinates as arguments
-        self.compare(co_or_1[0], co_or_1[1], co_or_1[2], co_or_1[3])
-        self.compare(co_or_2[0], co_or_2[1], co_or_2[2], co_or_2[3])
-        return
+            self.compare(coords.first_half())
+            self.compare(coords.second_half())
+            return

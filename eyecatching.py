@@ -10,7 +10,6 @@ from eyecatchingutil import Controller
 from eyecatchingutil import RecursiveController
 from eyecatchingutil import MetaImage
 from eyecatchingutil import MetaImage2
-from eyecatchingutil import BrowserScreenshot
 from eyecatchingutil import FirefoxScreenshot
 from eyecatchingutil import ChromeScreenshot
 
@@ -39,7 +38,7 @@ def cli(controller):
 def test(controller, t):
     print(controller.image_chrome.name)
     c = ChromeScreenshot()
-    c.take_shot(t, 1280)
+    c.take_shot_puppeteer(t)
 
 
 @cli.command()
@@ -140,7 +139,7 @@ def recursive(
     controller2.threshold = threshold
 
     # Calling divide method of init Object with image co-ordinates
-    controller2.divide(0, 0, controller2.ref_image.width, controller2.ref_image.height, 0)
+    controller2.divide(controller2.ref_image.img.getbbox(), 0)
     controller2.ref_image.save_output()
     controller2.ref_image.img.show()
 

@@ -21,7 +21,7 @@ const puppeteer = require('puppeteer');
     await page.setViewport({width: width, height: dimensions.height})
 
 
-    await page.screenshot({path: 'imageA.png', fullPage: true});
+    await page.screenshot({path: 'screenshot.png', fullPage: true});
 
     await browser.close();
 })(); 
