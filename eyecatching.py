@@ -41,8 +41,8 @@ def cli():
 @click.argument('t', default="test")
 def test(t):
     print(t)
-    a = ChromeScreenshot()
-    a.take(t, 1600)
+    a = FirefoxScreenshot()
+    a.take(t)
 
 
 @cli.command()
@@ -129,17 +129,24 @@ def get_image_size(filename):
 
 @cli.command()
 @click.argument('url')
+@click.option('--browser',
+            default="chrome, firefox",
+            help="Browser to be used. \n(Default: chrome, firefox)")
 @click.option('--width',
             default=1280,
             help="Viewport width, px. \n(Default: 1280)")
+@click.option('--height',
+            help="Viewport height, px. Only required for Chrome")
 def screenshot(
     url,
     width,
+    height = 0,
+    browser = "chrome, firefox",
     ):
     """
     - Get screenshot of the given webpage URL
     """
-    if url == "":
+    if url is None:
         print("Argument <URL> missing! Please input a valid URL.")
         exit()
     
@@ -147,95 +154,38 @@ def screenshot(
         print("Invalid URL! Please input a valid URL.")
         exit()
 
-    ff = FirefoxScreenshot()
-    ff.take(url)
-    ht = ff.height
-    print(ht)
+    if browser != "":
+        list = browser.split(",")
+        browsers = []
+        for it in list:
+            browsers.append(it.strip().lower())
+        has_firefox = "firefox" in browsers
+        has_chrome = "chrome" in browsers
+    else:
+        print("Error: \tNo browser provided!")
+        exit()
+
+    ht = height
+
+    if has_firefox:
+        ff = FirefoxScreenshot()
+        print("Info: \tGetting screenshot from Firefox browser")
+        ff.take_shot(url)
+        print("Info: \tSaved screenshot from Firefox with name {0}".format(ff.imagename))
+
+    if ht is None or ht == 0:
+        ht = ff.height
     
-    ch = ChromeScreenshot()
-    ch.take(url, ht)
+    if has_chrome:
+        if ht:
+            print("Info: \tGetting screenshot from Chrome browser")
+            ch = ChromeScreenshot()
+            ch.take_shot(url, ht)
+            print("Info: \tSaved screenshot from Chrome with name {0}".format(ch.imagename))
+        else:
+            print("Error: \tNo value for height given for Chrome")
+            exit()
 
-@cli.command()
-@click.argument('url', default="")
-@click.option('--width',
-            default=1280,
-            help="Viewport width, px. \n(Default: 1280)")
-def get_firefox_screenshot(url, width, imagename = image_firefox):
-    """
-    Get firefox screenshot and return image size
-    """
-    # add 10px for scrollbar
-    window_size = "--window-size={0}".format(width + 10)
-    subprocess.call(["firefox",
-                    "-screenshot",
-                    window_size,
-                    url])
-    # rename the output file
-    os.rename("screenshot.png", imagename)
-    # remove the scrolbar 
-    remove_pixels_right(imagename, 10)
-    print("Saved screenshot from Firefox with name {0}".format(imagename))
-    return get_image_size(imagename)
-
-
-def get_chrome_screenshot(url:str, width:int, height:int, imagename = image_chrome):
-    """
-    Get chrome screenshot and return image size
-    """
-    # chrome expects full viewport size
-    # for now, even if user asks for chrome screenshot,
-    # fetch firefox shot too (silently). Consider using pupeteer instead
-    window_size = "--window-size={0},{1}".format(width, height)
-    subprocess.call(["/opt/google/chrome/chrome",
-                        "--headless",
-                        "--hide-scrollbars",
-                        window_size,
-                        "--screenshot",
-                        url])
-    os.rename("screenshot.png", image_chrome)
-    print("Saved screenshot from Chrome with name {0}".format(image_chrome))
-    return get_image_size(image_chrome)
-
-def remove_pixels_right(image: str, pixels: int):
-    """
-    Subtract given pixels from right side of the image 
-    and replace the original file.
-    Used to remove scrollbar pixels.
-    """
-    px = "{0}x0".format(pixels)
-    subprocess.call(["convert", image, "-gravity", "East", "-chop", px, image])
-    print("Removed {0} pixels from the right side of image {1}".format(pixels, image))
-
-
-def extend_image(image: str, factor: int):
-    """
-    Extend the image to be equally divisible by factor
-    """
-    wd, ht = get_image_size(image)
-    ex_wd = factor - (wd % factor)
-    ex_ht = factor - (ht % factor)
-
-    if ex_ht != factor:
-        ex_ht_str = "0x{0}".format(ex_ht)
-        subprocess.call(["convert",
-                        image,
-                        "-gravity",
-                        "south",
-                        "-splice",
-                        ex_ht_str,
-                        image])
-        print("Extended {0} pixels at the bottom of image {1}".format(ex_ht, image))
-
-    if ex_wd != factor:
-        ex_wd_str = "{0}x0".format(ex_wd)
-        subprocess.call(["convert",
-                        image,
-                        "-gravity",
-                        "east",
-                        "-splice",
-                        ex_wd_str,
-                        image])
-        print("Extended {0} pixels at the right of image {1}".format(ex_wd, image))
 
 
 def tile_image(filename: str, edge: int):
@@ -272,11 +222,6 @@ def tile_image(filename: str, edge: int):
     print("Generated {0} images in directory {1}".format(counter, img.prefix))
 
 
-def probe_viewport_size():
-    """
-    Determine the webpage viewport size using a headless browser
-    """
-    pass
 
 def mark_image(image: str, opacity: float):
     """

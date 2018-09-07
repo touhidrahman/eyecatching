@@ -394,21 +394,54 @@ class BrowserScreenshot:
         img = Image.open(self.imagename)
         w, h = img.size
         c = Coordinates(0, 0, w, h)
-        newimg = img.crop(c.add_to_bottom(-pixels))
+        newimg = img.crop(c.add_to_right(-pixels))
         img.close()
+        os.remove(self.imagename)
         newimg.save(self.imagename)
         self.height = newimg.size[0]
-# TODO:
-        print("Removed {0} pixels from the right side of image {1}".format(pixels, self.imagename))
+        print("Info: \tRemoved {0} pixels from the right side of image {1}".format(pixels, self.imagename))
 
+def extend_image(self, factor: int):
+    """
+    Extend the image to be equally divisible by factor
+    """
+    img = Image.open(self.imagename)
+    wd, ht = img.size
+    img.close()
+    ex_wd = factor - (wd % factor)
+    ex_ht = factor - (ht % factor)
+
+    if ex_ht != factor:
+        ex_ht_str = "0x{0}".format(ex_ht)
+        subprocess.call(["convert",
+                        self.imagename,
+                        "-gravity",
+                        "south",
+                        "-splice",
+                        ex_ht_str,
+                        self.imagename])
+        print("Info: \tExtended {0} pixels at the bottom of image {1}".format(ex_ht, self.imagename))
+
+    if ex_wd != factor:
+        ex_wd_str = "{0}x0".format(ex_wd)
+        subprocess.call(["convert",
+                        self.imagename,
+                        "-gravity",
+                        "east",
+                        "-splice",
+                        ex_wd_str,
+                        self.imagename])
+        print("Info: \tExtended {0} pixels at the right of image {1}".format(ex_wd, self.imagename))
 
 
 class FirefoxScreenshot(BrowserScreenshot):
     def __init__(self):
         super().__init__('firefox')
 
-    def take(self, url):
-        """ Take screenshot using Firefox """
+    def take_shot(self, url, height = 0):
+        """
+        Take screenshot using Firefox
+        """
         window_size = "--window-size={0}".format(self.width + 10)
         subprocess.call(["firefox",
                         "-screenshot",
@@ -418,15 +451,16 @@ class FirefoxScreenshot(BrowserScreenshot):
         os.rename("screenshot.png", self.imagename)
         # remove the scrolbar 
         self.remove_pixels_right(10)
-        print("Saved screenshot from Firefox with name {0}".format(self.imagename))
 
 
 class ChromeScreenshot(BrowserScreenshot):
     def __init__(self):
         super().__init__('chrome')
 
-    def take(self, url, height):
-        """ Take screenshot using Chrome """
+    def take_shot(self, url, height):
+        """
+        Take screenshot using Chrome
+        """
         # chrome expects full viewport size
         self.height = height
         window_size = "--window-size={0},{1}".format(self.width, self.height)
@@ -437,4 +471,4 @@ class ChromeScreenshot(BrowserScreenshot):
                             "--screenshot",
                             url])
         os.rename("screenshot.png", self.imagename)
-        print("Saved screenshot from Chrome with name {0}".format(self.imagename))
+        
