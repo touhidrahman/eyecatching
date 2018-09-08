@@ -185,9 +185,14 @@ class Controller:
             canvas.paste(slice.image, slice.get_coordinates())
             del slice
 
-        saving_name = "output_{0}_{1}_{2}.png".format(ref_img, compare_img, algorithm)
-        canvas.save(saving_name)
-        print("Info: \tResulted file saved as {0}".format(saving_name))
+        output_name = "output_linear_{0}_{1}_{2}.{3}".format(
+            dir_ref,
+            dir_com,
+            algorithm,
+            r_img.ext
+            )
+        canvas.save(output_name)
+        print("Info: \tResulted file saved as {0}".format(output_name))
         return canvas
 
 

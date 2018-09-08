@@ -138,7 +138,13 @@ def recursive(
     controller.com_image = Image.open(controller.image_firefox.imagename)
     # Calling divide method of init Object with image co-ordinates
     controller.divide_recursive(controller.ref_image.getbbox(), 0)
-    controller.save_output(controller.ref_image, "output_tanim.png")
+    output_name = "output_recursive_{0}_{1}_{2}.{3}".format(
+        controller.image_chrome.name,
+        controller.image_firefox.name,
+        controller.algorithm,
+        controller.image_chrome.ext
+    )
+    controller.save_output(controller.ref_image, output_name)
     controller.ref_image.show()
 
 
