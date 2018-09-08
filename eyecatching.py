@@ -6,10 +6,8 @@ import imagehash
 import click
 from PIL import Image
 from urllib.parse import urlparse
-from eyecatchingutil import Controller
-from eyecatchingutil import RecursiveController
+from controller import Controller
 from eyecatchingutil import MetaImage
-from eyecatchingutil import MetaImage2
 from eyecatchingutil import FirefoxScreenshot
 from eyecatchingutil import ChromeScreenshot
 
@@ -134,14 +132,14 @@ def recursive(
     threshold,
     width
     ):
-    controller2 = RecursiveController()
-    controller2.algorithm = algorithm
-    controller2.threshold = threshold
-
+    controller.algorithm = algorithm
+    controller.threshold = threshold
+    controller.ref_image = Image.open(controller.image_chrome.imagename)
+    controller.com_image = Image.open(controller.image_firefox.imagename)
     # Calling divide method of init Object with image co-ordinates
-    controller2.divide(controller2.ref_image.img.getbbox(), 0)
-    controller2.ref_image.save_output()
-    controller2.ref_image.img.show()
+    controller.divide_recursive(controller.ref_image.getbbox(), 0)
+    controller.save_output(controller.ref_image, "output_tanim.png")
+    controller.ref_image.show()
 
 
 @cli.command()

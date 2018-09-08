@@ -3,7 +3,6 @@ import os
 import sys
 import shutil
 import imagehash
-import click
 from PIL import Image
 from urllib.parse import urlparse
 
@@ -38,9 +37,7 @@ class MetaImage:
             self.bottom = self.height
 
     def get_prefix(self):
-        raw_prefix = self.imagename.split(".")[0]
-        prefix = raw_prefix.split("_")[0]
-        return prefix
+        return self.imagename.split(".")[0].split("_")[0]
     
     def get_size(self):
         return self.image.size
@@ -116,31 +113,6 @@ class MetaImage:
 
 
 
-class MetaImage2:
-    def __init__(self, img, name):
-        self.img = img
-        self.name = name
-        self.width, self.height = self.img.size
-
-    # Takes image co-ordinates
-    def blend_image(self, patch_coords, diff):
-        (x1, y1, x2, y2) = patch_coords
-        # Crop the image with given co-ordinates
-        img_slice = self.img.crop( (x1, y1, x2, y2) )
-        opacity = diff / 100 + 0.3  # thus it will be 0.3>opacity<0.93
-        img_bottom = img_slice.convert("RGB")
-        img_top = Image.new("RGB", img_slice.size, "salmon")
-        blended_img = Image.blend(img_bottom, img_top, opacity)
-        return blended_img
-    
-    # Pasting blended part to original image
-    def paste_patch(self, paste_img, x1, y1):
-        self.img.paste(paste_img, (x1, y1))
-
-    # Saving the Reconstructed Image
-    def save_output(self):
-        self.img.save("output_recursive.png")
-
 
 class ImageComparator:
 
@@ -152,7 +124,8 @@ class ImageComparator:
         switcher = {
             'ahash': self.is_similar_a_hash,
             'phash': self.is_similar_p_hash,
-            'dhash': self.is_similar_d_hash
+            'dhash': self.is_similar_d_hash,
+            'whash': self.is_similar_w_hash,
         }
         return switcher[algorithm]()
 
@@ -173,6 +146,9 @@ class ImageComparator:
     def is_similar_d_hash(self):
         return self.image1.d_hash() == self.image2.d_hash()
 
+    def is_similar_w_hash(self):
+        return self.image1.w_hash() == self.image2.w_hash()
+
     def hamming_diff_a_hash(self):
         return abs(self.image1.a_hash() - self.image2.a_hash())
 
@@ -181,6 +157,9 @@ class ImageComparator:
 
     def hamming_diff_d_hash(self):
         return abs(self.image1.d_hash() - self.image2.d_hash())
+
+    def hamming_diff_w_hash(self):
+        return abs(self.image1.w_hash() - self.image2.w_hash())
 
 
 
@@ -271,8 +250,10 @@ class BrowserScreenshot:
         self.name = name
         self.imagename = name + self.ext
 
+
     def size(self):
         return (self.width, self.height)
+
 
     def remove_pixels_right(self, pixels:int):
         """
@@ -289,6 +270,7 @@ class BrowserScreenshot:
         newimg.save(self.imagename)
         self.height = newimg.size[1]
         print("Info: \tRemoved {0} pixels from the right side of image {1}".format(pixels, self.imagename))
+
 
     def extend_image(self, factor: int):
         """
@@ -381,203 +363,3 @@ class ChromeScreenshot(BrowserScreenshot):
         print("Info: \tInitial image size: {0} x {1}".format(self.width, self.height))        
 
 
-
-class Controller:
-
-    outputname = "output.png"
-
-    def __init__(self):
-        self.image_chrome = ChromeScreenshot()
-        self.image_firefox = FirefoxScreenshot()
-
-    def tile_image(self, filename: str, edge: int):
-        """
-        Slice image into tiles with meaningful naming
-        and move them into a directory named as original image
-        """
-        counter = 0
-        img = MetaImage(filename)
-
-        # remove directory if already exists
-        if os.path.isdir(img.prefix):
-            shutil.rmtree(img.prefix)
-
-        os.mkdir(img.prefix)
-
-        print("Info: \tSlicing image {0} into {1} x {1} pixel tiles".format(filename, edge))
-
-        for x in range(0, img.width, edge):
-            for y in range(0, img.height, edge):
-                coords = (x, y, x + edge, y + edge)
-                cropped_img = img.image.crop(coords)
-                cropped_filename = "{0}/{0}_{1}_{2}_{3}_{4}_.{5}".format(
-                    img.prefix,
-                    x,
-                    y,
-                    x + edge,
-                    y + edge,
-                    img.ext
-                )
-                cropped_img.save(cropped_filename)
-                counter = counter + 1
-                del cropped_img
-
-        print("Info: \tGenerated {0} images in directory {1}".format(counter, img.prefix))
-
-    def mark_image(self, image: str, opacity: float, color:str = "salmon"):
-        """
-        Mask image with a color
-        """
-        img_bottom = Image.open(image).convert("RGB")
-        img_top = Image.new("RGB", img_bottom.size, color)
-        blended = Image.blend(img_bottom, img_top, opacity)
-        blended.save(image)
-
-        del img_bottom, img_top, blended
-
-    def compare_tiles(self, ref_dir, compare_dir, algorithm):
-        """
-        Compares tiles and marks different tiles in comparing directory
-        """
-        path = os.getcwd() + "/" + compare_dir
-
-        for tile in os.listdir(path):
-            tile_ref_img = ref_dir + "/" + tile.replace(compare_dir, ref_dir)
-            tile_com_img = compare_dir + "/" + tile
-            hash_diff = self.get_hash_diff(tile_ref_img, tile_com_img, algorithm)
-
-            opacity = 0
-            if hash_diff >= 20 and hash_diff < 39:
-                opacity = 0.3
-            if hash_diff >= 40 and hash_diff < 49:
-                opacity = 0.4
-            if hash_diff >= 50 and hash_diff < 59:
-                opacity = 0.5
-            if hash_diff >= 60:
-                opacity = 0.6
-
-            # opacity = hash_diff / 100
-
-            if opacity != 0:
-                self.mark_image(tile_com_img, opacity)
-
-    def remake_image(self, ref_img, compare_img, algorithm):
-        print("Info: \tMarking visual differences from reference image...")
-        r_img = MetaImage(ref_img)
-        c_img = MetaImage(compare_img)
-        canvas = Image.new("RGB", c_img.size, "white")
-        dir_ref = r_img.prefix
-        dir_com = c_img.prefix
-        path = os.getcwd() + "/" + dir_com
-
-        self.compare_tiles(dir_ref, dir_com, algorithm)
-
-        for filename in os.listdir(path):
-            slice = MetaImage(filename)
-            canvas.paste(slice.image, slice.get_coordinates())
-            del slice
-
-        saving_name = "output_{0}_{1}_{2}.png".format(ref_img, compare_img, algorithm)
-        canvas.save(saving_name)
-        print("Info: \tResulted file saved as {0}".format(saving_name))
-        return canvas
-
-    def get_hash_diff(self, image1, image2, algorithm):
-        """
-        Get the hamming distance of two images
-        """
-        switcher = {
-            'ahash': imagehash.average_hash,
-            'phash': imagehash.phash,
-            'dhash': imagehash.dhash,
-            'whash': imagehash.whash,
-        }
-        img1 = Image.open(image1)
-        img2 = Image.open(image2)
-        hash1 = switcher[algorithm](img1)
-        hash2 = switcher[algorithm](img2)
-        del img1, img2
-        return abs(hash1 - hash2)
-
-    def get_screenshot(self, url):
-        self.image_firefox.take_shot(url)
-        self.image_chrome.take_shot_puppeteer(url)
-
-
-
-
-
-class RecursiveController:
-
-    threshold = 8
-    algorithm = "ahash"
-
-    def __init__(self):
-        self.image_chrome = ChromeScreenshot()
-        self.image_firefox = FirefoxScreenshot()
-        self.ref_image = MetaImage2(Image.open(self.image_chrome.imagename), "A")
-        self.com_image = MetaImage2(Image.open(self.image_firefox.imagename), "B")
-        self.count = 0
-        self.switcher = {
-            'ahash': self.a_hash,
-            'dhash': self.d_hash,
-            'phash': self.p_hash,
-            'whash': self.w_hash
-        }
-
-    # Methods for selecting given hashing algorithm by switcher
-    def a_hash(self, img):
-        return imagehash.average_hash(img)
-    def d_hash(self, img):
-        return imagehash.dhash(img)
-    def p_hash(self, img):
-        return imagehash.phash(img)
-    def w_hash(self, img):
-        return imagehash.whash(img)
-
-    def compare(self, patch_coords):
-        """
-        Compares two image slice with given co-ordinates
-        """
-        x1, y1, x2, y2 = patch_coords
-
-        ref_img_slice = self.ref_image.img.crop(patch_coords)
-        com_img_slice = self.com_image.img.crop(patch_coords)
-
-        hash_a =  self.switcher[self.algorithm](ref_img_slice)
-        hash_b =  self.switcher[self.algorithm](com_img_slice)
-        diff =  hash_b - hash_a
-
-        if diff == 0:
-            # Two images are similar by hash, check their pixel's color
-            color1 = ref_img_slice.getpixel((2,3))
-            color2 = com_img_slice.getpixel((2,3))
-            # Images are similar by hash, but not similar by color
-            if color1 != color2:
-                blend_img = self.ref_image.blend_image(patch_coords, diff)
-                self.ref_image.paste_patch(blend_img, x1, y1)
-                # Increase dissimilar portion count
-                self.count = self.count+1      
-                return
-        else:
-            # go inside and compare again
-            self.divide(patch_coords, diff)
-            return
-
-    # Take image co-ordinates as parameter
-    def divide(self, initial_coords, diff):
-        (x1, y1, x2, y2) = initial_coords
-        coords = Coordinates(x1, y1, x2, y2)
-
-        # return and save if image is less than 8px
-        if coords.width <= self.threshold or coords.height <= self.threshold:  
-            blend_img = self.ref_image.blend_image(initial_coords, diff)
-            self.ref_image.paste_patch(blend_img, x1, y1)
-            # Increase dissimilar portion count
-            self.count = self.count+1      
-            return
-        # Divide the image with larger side
-        else: 
-            self.compare(coords.first_half())
-            self.compare(coords.second_half())
-            return
