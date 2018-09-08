@@ -24,6 +24,7 @@ class MetaImage:
         self.size = self.image.size
         self.width = self.image.size[0]
         self.height = self.image.size[1]
+        self.name = self.imagename.split(".")[0]
         self.ext = self.imagename.split(".")[1]
         if len(namebits) > 1:
             self.left       = int(namebits[1])
@@ -116,7 +117,7 @@ class MetaImage:
 
 class ImageComparator:
 
-    def __init__(self, image1: MetaImage, image2: MetaImage):
+    def __init__(self, image1: Image.Image, image2: Image.Image):
         self.image1 = image1
         self.image2 = image2
 
@@ -133,7 +134,8 @@ class ImageComparator:
         switcher = {
             'ahash': self.hamming_diff_a_hash,
             'phash': self.hamming_diff_p_hash,
-            'dhash': self.hamming_diff_d_hash
+            'dhash': self.hamming_diff_d_hash,
+            'whash': self.hamming_diff_w_hash
         }
         return switcher[algorithm]()
 

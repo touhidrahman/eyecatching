@@ -31,17 +31,17 @@ def cli(controller):
     pass
 
 @cli.command()
-@click.argument('t', default="test")
+@click.argument('image1')
+@click.argument('image2')
+@click.argument('edge')
 @pass_controller
-def test(controller, t):
-    print(controller.image_chrome.name)
-    c = ChromeScreenshot()
-    c.take_shot_puppeteer(t)
+def test(controller, image1, image2, edge):
+    controller.compare_linear(image1, image2, edge, "ahash", 10)
 
 
 @cli.command()
 @click.argument('url')
-@click.option('--factor',
+@click.option('--block-size',
             default=20,
             help="Tile block size, px. \n(Default: 20)")
 @click.option('--algorithm',
@@ -50,52 +50,71 @@ def test(controller, t):
 @click.option('--ref-browser',
             default="chrome",
             help="Reference browser \n(Default: chrome) \nAvailable: chrome, firefox")
-@click.option('--output', help="Name for the output file.")
+@click.option('--output-id',
+            default="_",
+            help="An identifieable name to be added in the output file.")
 @click.option('--width',
             default=1280,
             help="Viewport width, px. \n(Default: 1280)")
+@click.option('--threshold',
+            default=10,
+            help="Hamming distance or threshold to consider a block dissimilar. \n(Default: 10) \tAvailable: 0 - 63")
 @pass_controller
 def linear(
     controller,
     url,
-    factor,
+    block_size,
     algorithm,
     ref_browser,
-    output,
+    output_id,
     width,
+    threshold
     ):
     """
-    - Test two screenshots using linear approach
+    - Test two screenshots using block comparison
     """
 
     validate_command_inputs(url, algorithm)
 
-    if factor < 8:
+    if block_size < 8:
         print("Factor is too small! Please use a value above 8")
         exit()
 
     print('Eyecatching is working....')
 
-    controller.get_screenshot(url)
-
-    # extend images to cut precisely
-    print("Info: \tExtending images with white canvas to work with block size")
-    controller.image_chrome.extend_image(factor)
-    controller.image_firefox.extend_image(factor)
-
-    # slice to tiles
-    controller.tile_image(controller.image_chrome.imagename, factor)
-    controller.tile_image(controller.image_firefox.imagename, factor)
+    controller.algorithm = algorithm
+    controller.width = width
+    controller.url = url
+    controller.block_size = block_size
+    controller.output_id = output_id
 
     if ref_browser == "chrome":
-        ref_img = controller.image_chrome.imagename
-        comp_img = controller.image_firefox.imagename
+        ref_image = controller.image_chrome
+        com_image = controller.image_firefox
     if ref_browser == "firefox":
-        ref_img = controller.image_firefox.imagename
-        comp_img = controller.image_chrome.imagename
+        ref_image = controller.image_firefox
+        com_image = controller.image_chrome
 
-    # join slices
-    output = controller.remake_image(ref_img, comp_img, algorithm)
+    # get screenshots
+    controller.get_screenshot(url)
+    # normalize_images
+    controller.normalize_images(ref_image.imagename, com_image.imagename)
+    # extend images to cut precisely
+    print("Info: \tExtending images with white canvas to work with block size")
+    # controller.ref_image.extend_image(block_size)
+    # controller.com_image.extend_image(block_size)
+
+    # start compare process
+    output = controller.compare_linear(ref_image, com_image, block_size, algorithm, threshold)
+
+    output_name = "output_lin_{0}_{1}_{2}_{3}.{4}".format(
+        output_id,
+        ref_image.name,
+        com_image.name,
+        algorithm,
+        ref_image.ext
+    )
+    output.save(output_name)
 
     print("Eyecathing process completed.")
     output.show()
@@ -157,7 +176,7 @@ def recursive(
         controller.image_chrome.ext
     )
     controller.save_output(controller.ref_image, output_name)
-    
+
     print("Eyecathing process completed.")
     controller.ref_image.show()
 
@@ -207,11 +226,14 @@ def screenshot(
 
 
 @cli.command()
-def normalize_images():
+@click.argument("image1")
+@click.argument("image2")
+@pass_controller
+def normalize(controller, image1, image2):
     """
-    - Make 2 images equal height
+    - Make 2 images equal height by adding white background to the smaller image
     """
-    pass
+    controller.normalize_images(image1, image2)
 
 
 @cli.command()
