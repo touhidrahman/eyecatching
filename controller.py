@@ -9,6 +9,7 @@ from eyecatchingutil import MetaImage
 from eyecatchingutil import FirefoxScreenshot
 from eyecatchingutil import ChromeScreenshot
 from eyecatchingutil import Coordinates
+from eyecatchingutil import ImageComparator
 
 
 class Controller:
@@ -80,6 +81,16 @@ class Controller:
             self.compare_recursive(coords.second_half())
             return
 
+    def blend_image_recursive(self, orig_image, patch_coords, diff):
+        (x1, y1, x2, y2) = patch_coords
+        # Crop the image with given co-ordinates
+        img_slice = orig_image.crop( (x1, y1, x2, y2) )
+        opacity = diff / 100 + 0.3  # thus it will be 0.3>opacity<0.93
+        img_bottom = img_slice.convert("RGB")
+        img_top = Image.new("RGB", img_slice.size, "salmon")
+        blended_img = Image.blend(img_bottom, img_top, opacity)
+        return blended_img
+
     def save_output(self, image_obj, name):
         image_obj.save(name)
 
@@ -97,8 +108,9 @@ class Controller:
                 ref_tile = ref_image.image.crop(coords)
                 com_tile = com_image.image.crop(coords)
                 # compare with ref tile
-                hash_diff =  self.get_hash_diff(ref_tile, com_tile, algorithm)
-                hash_diff_percent = 100 * hash_diff / 64
+                ic = ImageComparator(ref_tile, com_tile)
+                hash_diff =  ic.hash_diff(algorithm)
+                hash_diff_percent = ic.hash_diff_percent(algorithm)
                 # get an opacity value between 0 - 1
                 opacity = hash_diff_percent / 100
 
@@ -119,30 +131,6 @@ class Controller:
         # ref_image.image.show()
         return ref_image.image
 
-    def blend_image_recursive(self, orig_image, patch_coords, diff):
-        (x1, y1, x2, y2) = patch_coords
-        # Crop the image with given co-ordinates
-        img_slice = orig_image.crop( (x1, y1, x2, y2) )
-        opacity = diff / 100 + 0.3  # thus it will be 0.3>opacity<0.93
-        img_bottom = img_slice.convert("RGB")
-        img_top = Image.new("RGB", img_slice.size, "salmon")
-        blended_img = Image.blend(img_bottom, img_top, opacity)
-        return blended_img
-
-    def get_hash_diff(self, image1, image2, algorithm):
-        """
-        Get the hamming distance of two images
-        """
-        switcher = {
-            'ahash': imagehash.average_hash,
-            'phash': imagehash.phash,
-            'dhash': imagehash.dhash,
-            'whash': imagehash.whash,
-        }
-        hash1 = switcher[algorithm](image1)
-        hash2 = switcher[algorithm](image2)
-        return abs(hash1 - hash2)
-
     def get_screenshot(self, url):
         self.image_firefox.take_shot(url)
         self.image_chrome.take_shot_puppeteer(url)
@@ -160,7 +148,7 @@ class Controller:
 
         print("Info: \t{0} image size: {1}x{2}".format(image1, img1.width, img1.height))
         print("Info: \t{0} image size: {1}x{2}".format(image2, img2.width, img2.height))
-        print("Working:\tMaking both image size equal (as larger image)")
+        print("Work:\tMaking both image size equal (as larger image)")
 
         bigger_ht = img1.height if (img1.height >= img2.height) else img2.height
         bigger_wd = img1.width if (img1.width >= img2.width) else img2.width

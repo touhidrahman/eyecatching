@@ -10,68 +10,30 @@ class MetaImage:
 
     def __init__(self, imagename):
         self.imagename = imagename
-        namebits = self.imagename.split("_") # A_0_0_100_100_.png
-        self.prefix = self.get_prefix()
-        if len(namebits) == 1:
-            self.path = os.getcwd()
-            self.image = Image.open(imagename)
-        else:
-            self.path = "{0}/{1}".format(
-                os.getcwd(), self.prefix
-            )
-            self.image = Image.open(self.path + '/' + self.imagename)
-
+        self.prefix = imagename.split(".")[0].split("_")[0]
+        self.image = Image.open(self.imagename)
         self.size = self.image.size
         self.width = self.image.size[0]
         self.height = self.image.size[1]
         self.name = self.imagename.split(".")[0]
         self.ext = self.imagename.split(".")[1]
-        if len(namebits) > 1:
-            self.left       = int(namebits[1])
-            self.top        = int(namebits[2])
-            self.right      = int(namebits[3])
-            self.bottom     = int(namebits[4])
-        else:
-            self.left = 0
-            self.top = 0
-            self.right = self.width
-            self.bottom = self.height
-
-    def get_prefix(self):
-        return self.imagename.split(".")[0].split("_")[0]
-    
-    def get_size(self):
-        return self.image.size
+        l, t, r, b = self.image.getbbox()
+        self.coordinates = Coordinates(l, t, r, b)
 
     def get_coordinates(self):
-        return (
-            self.left,  self.top,
-            self.right, self.bottom
-        )
+        return self.coordinates.as_tuple()
 
     def left_half(self):
-        return (
-            self.left,          self.top,
-            int(self.width/2),  self.height
-        )
+        return self.image.crop(self.coordinates.left_half())
 
     def right_half(self):
-        return (
-            int(self.width/2),  self.top,
-            self.width,         self.height
-        )
+        return self.image.crop(self.coordinates.right_half())
 
     def top_half(self):
-        return (
-            self.left,  self.top,
-            self.width, int(self.height/2)
-        )
+        return self.image.crop(self.coordinates.top_half())
 
     def bottom_half(self):
-        return (
-            self.left,  int(self.height/2), 
-            self.width, self.height
-        )
+        return self.image.crop(self.coordinates.bottom_half())
 
     def is_landscape(self):
         return self.width > self.height
@@ -91,77 +53,11 @@ class MetaImage:
         if self.is_potrait():
             return self.bottom_half()
 
-    def format_name(self):
-        return "{0}_{1}_{2}_{3}_{4}_.{5}".format(
-            self.prefix, 
-            self.top, 
-            self.left,
-            self.bottom, 
-            self.right, 
-            self.ext
-        )
-
-    def format_name_with_dir(self):
-        return "{0}/{1}".format(
-            self.prefix, self.format_name()
-        )
-
-    def save(self):
-        name_with_dir = "{0}/{1}".format(
-            self.prefix, self.format_name()
-        )
-        self.image.save(name_with_dir)
-
-
-
-
-class ImageComparator:
-
-    def __init__(self, image1: Image.Image, image2: Image.Image):
-        self.image1 = image1
-        self.image2 = image2
-
-    def is_similar(self, algorithm = "ahash"):
-        switcher = {
-            'ahash': self.is_similar_a_hash,
-            'phash': self.is_similar_p_hash,
-            'dhash': self.is_similar_d_hash,
-            'whash': self.is_similar_w_hash,
-        }
-        return switcher[algorithm]()
-
-    def hamming_diff(self, algorithm = "ahash"):
-        switcher = {
-            'ahash': self.hamming_diff_a_hash,
-            'phash': self.hamming_diff_p_hash,
-            'dhash': self.hamming_diff_d_hash,
-            'whash': self.hamming_diff_w_hash
-        }
-        return switcher[algorithm]()
-
-    def is_similar_a_hash(self):
-        return self.image1.a_hash() == self.image2.a_hash()
-
-    def is_similar_p_hash(self):
-        return self.image1.p_hash() == self.image2.p_hash()
-
-    def is_similar_d_hash(self):
-        return self.image1.d_hash() == self.image2.d_hash()
-
-    def is_similar_w_hash(self):
-        return self.image1.w_hash() == self.image2.w_hash()
-
-    def hamming_diff_a_hash(self):
-        return abs(self.image1.a_hash() - self.image2.a_hash())
-
-    def hamming_diff_p_hash(self):
-        return abs(self.image1.p_hash() - self.image2.p_hash())
-
-    def hamming_diff_d_hash(self):
-        return abs(self.image1.d_hash() - self.image2.d_hash())
-
-    def hamming_diff_w_hash(self):
-        return abs(self.image1.w_hash() - self.image2.w_hash())
+    def save(self, name = None):
+        if name is None:
+            self.image.save(self.imagename)
+        else:
+            self.image.save(name)
 
 
 
@@ -240,6 +136,62 @@ class Coordinates:
 
 
 
+class ImageComparator:
+
+    def __init__(self, image1: Image.Image, image2: Image.Image):
+        self.image1 = image1
+        self.image2 = image2
+
+    def is_similar(self, algorithm = "ahash"):
+        switcher = {
+            'ahash': self.is_similar_a_hash,
+            'phash': self.is_similar_p_hash,
+            'dhash': self.is_similar_d_hash,
+            'whash': self.is_similar_w_hash,
+        }
+        return switcher[algorithm]()
+
+    def hamming_diff(self, algorithm = "ahash"):
+        switcher = {
+            'ahash': self.hamming_diff_a_hash,
+            'phash': self.hamming_diff_p_hash,
+            'dhash': self.hamming_diff_d_hash,
+            'whash': self.hamming_diff_w_hash
+        }
+        return switcher[algorithm]()
+
+    def hash_diff(self, algorithm = "ahash"):
+        return self.hamming_diff(algorithm)
+
+    def hash_diff_percent(self, algorithm = "ahash"):
+        return 100 * self.hamming_diff(algorithm) / 64
+
+    def is_similar_a_hash(self):
+        return imagehash.average_hash(self.image1) == imagehash.average_hash(self.image2)
+
+    def is_similar_p_hash(self):
+        return imagehash.phash(self.image1) == imagehash.phash(self.image2)
+
+    def is_similar_d_hash(self):
+        return imagehash.dhash(self.image1) == imagehash.dhash(self.image2)
+
+    def is_similar_w_hash(self):
+        return imagehash.whash(self.image1) == imagehash.whash(self.image2)
+
+    def hamming_diff_a_hash(self):
+        return abs(imagehash.average_hash(self.image1) - imagehash.average_hash(self.image2))
+
+    def hamming_diff_p_hash(self):
+        return abs(imagehash.phash(self.image1) - imagehash.phash(self.image2))
+
+    def hamming_diff_d_hash(self):
+        return abs(imagehash.dhash(self.image1) - imagehash.dhash(self.image2))
+
+    def hamming_diff_w_hash(self):
+        return abs(imagehash.whash(self.image1) - imagehash.whash(self.image2))
+
+
+
 
 
 class BrowserScreenshot:
@@ -252,10 +204,8 @@ class BrowserScreenshot:
         self.name = name
         self.imagename = name + self.ext
 
-
     def size(self):
         return (self.width, self.height)
-
 
     def remove_pixels_right(self, pixels:int):
         """

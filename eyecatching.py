@@ -74,7 +74,7 @@ def linear(
     - Test two screenshots using block comparison
     """
 
-    validate_command_inputs(url, algorithm)
+    validate_command_inputs(url)
 
     if block_size < 8:
         print("Factor is too small! Please use a value above 8")
@@ -99,13 +99,14 @@ def linear(
     controller.get_screenshot(url)
     # normalize_images
     controller.normalize_images(ref_image.imagename, com_image.imagename)
-    # extend images to cut precisely
-    print("Info: \tExtending images with white canvas to work with block size")
-    # controller.ref_image.extend_image(block_size)
-    # controller.com_image.extend_image(block_size)
-
     # start compare process
-    output = controller.compare_linear(ref_image, com_image, block_size, algorithm, threshold)
+    output = controller.compare_linear(
+        ref_image.imagename,
+        com_image.imagename,
+        block_size,
+        algorithm,
+        threshold
+        )
 
     output_name = "output_lin_{0}_{1}_{2}_{3}.{4}".format(
         output_id,
@@ -149,7 +150,7 @@ def recursive(
     - Test two screenshots using recursive approach
     """
 
-    validate_command_inputs(url, algorithm)
+    validate_command_inputs(url)
 
     print('Eyecatching is working....')
 
@@ -197,13 +198,7 @@ def screenshot(
     """
     - Get screenshot of the given webpage URL
     """
-    if url is None:
-        print("Argument <URL> missing! Please input a valid URL.")
-        exit()
-    
-    if is_valid_url(url) == False:
-        print("Invalid URL! Please input a valid URL.")
-        exit()
+    validate_command_inputs(url)
 
     if browser != "":
         list = browser.split(",")
@@ -235,6 +230,15 @@ def normalize(controller, image1, image2):
     """
     controller.normalize_images(image1, image2)
 
+@cli.command()
+def firstrun():
+    """
+    - Install required dependencies of eyecatching
+    """
+    subprocess.call([
+        "npm", "install"
+    ])
+
 
 @cli.command()
 def reset():
@@ -258,7 +262,7 @@ def is_valid_url(url):
         return False
 
 
-def validate_command_inputs(url, algorithm):
+def validate_command_inputs(url):
     if url is None:
         print("Argument <URL> missing! Please input a valid URL.")
         exit()
