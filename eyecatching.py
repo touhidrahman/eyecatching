@@ -68,13 +68,7 @@ def linear(
     - Test two screenshots using linear approach
     """
 
-    if url == "":
-        print("Argument <URL> missing! Please input a valid URL.")
-        exit()
-
-    if is_valid_url(url) == False:
-        print("Invalid URL! Please input a valid URL.")
-        exit()
+    validate_command_inputs(url, algorithm)
 
     if factor < 8:
         print("Factor is too small! Please use a value above 8")
@@ -118,7 +112,7 @@ def linear(
 @click.option('--ref-browser',
             default="chrome",
             help="Reference browser \n(Default: chrome) \nAvailable: chrome, firefox")
-@click.option('--output', help="Name for the output file.")
+@click.option('--output', help="Add an identifier to the output file.")
 @click.option('--width',
             default=1280,
             help="Viewport width, px. \n(Default: 1280)")
@@ -132,12 +126,30 @@ def recursive(
     threshold,
     width
     ):
+    """
+    - Test two screenshots using recursive approach
+    """
+
+    validate_command_inputs(url, algorithm)
+
+    print('Eyecatching is working....')
+
+    controller.get_screenshot(url)
+
     controller.algorithm = algorithm
     controller.threshold = threshold
-    controller.ref_image = Image.open(controller.image_chrome.imagename)
-    controller.com_image = Image.open(controller.image_firefox.imagename)
-    # Calling divide method of init Object with image co-ordinates
+
+    # TODO: change Image.open to MetaImage
+    if ref_browser == "chrome":
+        controller.ref_image = Image.open(controller.image_chrome.imagename)
+        controller.com_image = Image.open(controller.image_firefox.imagename)
+    if ref_browser == "firefox":
+        controller.ref_image = Image.open(controller.image_chrome.imagename)
+        controller.com_image = Image.open(controller.image_firefox.imagename)
+
+    # Start divide and compare with initial bounding box
     controller.divide_recursive(controller.ref_image.getbbox(), 0)
+
     output_name = "output_recursive_{0}_{1}_{2}.{3}".format(
         controller.image_chrome.name,
         controller.image_firefox.name,
@@ -145,6 +157,8 @@ def recursive(
         controller.image_chrome.ext
     )
     controller.save_output(controller.ref_image, output_name)
+    
+    print("Eyecathing process completed.")
     controller.ref_image.show()
 
 
@@ -222,6 +236,12 @@ def is_valid_url(url):
         return False
 
 
+def validate_command_inputs(url, algorithm):
+    if url is None:
+        print("Argument <URL> missing! Please input a valid URL.")
+        exit()
 
-
+    if is_valid_url(url) == False:
+        print("Invalid URL! Please input a valid URL.")
+        exit()
 
