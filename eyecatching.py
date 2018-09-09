@@ -274,9 +274,11 @@ def compare(
         output.show()
     if method == "recursive":
         coords = controller.ref.image.getbbox()
-        controller.compare_rec(coords, 0)
+        controller.divide_recursive(coords, 0)
         controller.save_output(controller.ref.image, method)
         controller.ref.image.show()
+        print("Done:\tNumber of blocks dissimilar: {0}".format(controller._rec_count))
+        print("Done:\tAverage dissimilarity: {0:.2f}%".format(round(controller._rec_total_diff / controller._rec_count, 2)))
 
     print("Eyecathing process completed.")
 

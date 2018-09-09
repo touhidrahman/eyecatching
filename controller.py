@@ -26,54 +26,9 @@ class Controller:
     url = None
 
     def __init__(self):
-        self.count = 0 # used for recursive operations
-        self.paste_coords = []
-
-    def compare_rec(self, coordinates, diff):
-        l, t, r, b = coordinates
-        coords = Coordinates(l, t, r, b)
-        first = coords.first_half()
-        second = coords.second_half()
-
-        if self.count > 0 and diff == 0:
-            return
-
-        # initial step, divide first
-        if self.count == 0:  
-            self.compare_rec(first, diff)
-            self.compare_rec(second, diff)
-            self.count += 1
-            return
-        # else check if the patch is smaller than block size
-        # and is different
-        if diff > 0 and (coords.width <= self.block_size or coords.height <= self.block_size):
-            self.paste_coords.append(coords.as_tuple())
-            return
-
-        # else go inside and compare
-        ref_slice = self.ref.get_cropped(coords.as_tuple())
-        com_slice = self.com.get_cropped(coords.as_tuple())
-
-        ic = ImageComparator(ref_slice, com_slice)
-        diff = ic.hamming_diff(self.algorithm)
-
-        if diff > 0:
-            self.compare_rec(first, diff)
-            self.compare_rec(second, diff)
-            self.count += 1
-            return
-
-
-    def divide_rec(self, coordinates):
-        l, t, r, b = coordinates
-        coords = Coordinates(l, t, r, b)
-        
-        if coords.width <= self.block_size or coords.height <= self.block_size:
-            return False
-        else:
-            self.compare_rec(coords.first_half())
-            self.compare_rec(coords.second_half())
-            return True
+        # used for recursive operations
+        self._rec_count = 0
+        self._rec_total_diff = 0
 
     def compare_recursive(self, patch_coords):
         """
@@ -87,10 +42,11 @@ class Controller:
         diff = ic.hamming_diff(self.algorithm)
 
         if diff <= self.threshold and ic.is_similar_by_color() == False:
-            blended = self.blend_image_recursive(self.ref.image, patch_coords, diff) #TODO:
+            blended = self.blend_image_recursive(self.ref.image, patch_coords, diff)
             self.ref.image.paste(blended, (x1, y1))
             # Increase dissimilar portion count
-            self.count += 1
+            self._rec_count += 1
+            self._rec_total_diff += diff
             return
         else:
             # go inside and compare again
@@ -105,17 +61,18 @@ class Controller:
         if coords.width <= self.block_size or coords.height <= self.block_size:
             blended = self.blend_image_recursive(self.ref.image, initial_coords, diff)
             self.ref.image.paste(blended, (x1, y1))
-            self.count += 1
+            self._rec_count += 1
+            self._rec_total_diff += diff
             return
         # Divide the image with larger side
-        else: 
+        else:
             self.compare_recursive(coords.first_half())
             self.compare_recursive(coords.second_half())
             return
 
     def blend_image_recursive(self, image_obj, coords, diff):
         patch = image_obj.crop(coords)
-        opacity = diff / 100 + 0.3 # TODO:
+        opacity = (100 * diff / 64) / 100 if diff != 0 else 0
         img1 = patch.convert("RGB")
         img2 = Image.new("RGB", patch.size, "salmon")
         blended = Image.blend(img1, img2, opacity)
@@ -132,7 +89,7 @@ class Controller:
             self.ref.ext
         )
         image_obj.save(output_name)
-        print("Done: \tOutput saved as: {0}.".format(output_name))
+        print("Done: \tOutput saved as: {0}".format(output_name))
 
     def compare_linear(self):
         counter = 0
@@ -166,7 +123,7 @@ class Controller:
         print("Done: \tTotal blocks compared: {0}.".format(counter))
         print("Done: \tNumber of blocks with dissimilarity: {0}".format(counter_problem))
         print("Done: \tAverage dissimilarity {0:.2f}%.".format(round(total_diff / counter, 2)))
-        
+
         return self.ref.image
 
     def blend_image(self, image_obj, opacity, color = "salmon"):
@@ -198,17 +155,17 @@ class Controller:
         img1 = MetaImage(image1)
         img2 = MetaImage(image2)
 
-        if img1.size == img2.size:
-            print("Info: \tImage sizes are already equal")
-            return
-
         print("Info: \t{0} image size: {1}x{2}".format(image1, img1.width, img1.height))
         print("Info: \t{0} image size: {1}x{2}".format(image2, img2.width, img2.height))
         print("Work:\tMaking both image size equal (as larger image)")
 
+        if img1.size == img2.size:
+            print("Info: \tImage sizes are already equal")
+            return
+
         bigger_ht = img1.height if (img1.height >= img2.height) else img2.height
         bigger_wd = img1.width if (img1.width >= img2.width) else img2.width
-        
+
         newimg = Image.new("RGB", (bigger_wd, bigger_ht), "white")
         # which one is smaller
         if img1.size == (bigger_wd, bigger_ht):
