@@ -74,10 +74,11 @@ class Coordinates:
         self.y1 = t
         self.x2 = r
         self.y2 = b
-        self.width = abs(r - l)
-        self.height = abs(b - t)
-        mid_x = int(abs(t - b) / 2)
-        mid_y = int(abs(l - r) / 2)
+
+        self.width = abs(self.x1 - self.x2)
+        self.height = abs(self.y1 - self.y2)
+        mid_x = int(self.width / 2)
+        mid_y = int(self.height / 2)
         self.mid_x = mid_x if (self.width % 2) == 0 else mid_x + 1
         self.mid_y = mid_y if (self.height % 2) == 0 else mid_y + 1
 

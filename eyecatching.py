@@ -266,7 +266,8 @@ def compare(
         output = controller.compare_linear()
         output.show()
     if method == "recursive":
-        controller.divide_recursive(controller.ref.image.getbbox(), 0)
+        coords = controller.ref.image.getbbox()
+        controller.compare_rec(coords)
         controller.save_output(controller.ref.image, method)
         controller.ref.image.show()
 

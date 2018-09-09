@@ -29,6 +29,39 @@ class Controller:
         self.count = 0 # used for recursive operations
         pass
 
+    def compare_rec(self, coordinates):
+        l, t, r, b = coordinates
+        coords = Coordinates(l, t, r, b)
+
+        if self.divide_rec(coordinates) == False:
+            ref_slice = self.ref.get_cropped(coords.as_tuple())
+            self.blend_image(ref_slice, 0.3) # TODO: change constant
+            return
+        else:
+            ref_slice = self.ref.get_cropped(coords.as_tuple())
+            com_slice = self.com.get_cropped(coords.as_tuple())
+
+            ic = ImageComparator(ref_slice, com_slice)
+            diff = ic.hamming_diff(self.algorithm)
+
+            if diff > self.threshold:
+                self.divide_rec(coords.first_half())
+                self.divide_rec(coords.second_half())
+                return
+
+            return
+
+    def divide_rec(self, coordinates):
+        l, t, r, b = coordinates
+        coords = Coordinates(l, t, r, b)
+        
+        if coords.width <= self.block_size or coords.height <= self.block_size:
+            return False
+        else:
+            self.compare_rec(coords.first_half())
+            self.compare_rec(coords.second_half())
+            return True
+
     def compare_recursive(self, patch_coords):
         """
         Compares two image slice with given coordinates
