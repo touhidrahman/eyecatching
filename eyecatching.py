@@ -87,35 +87,22 @@ def linear(
     controller.url = url
     controller.block_size = block_size
     controller.output_id = output_id
+    controller.threshold = threshold
 
     if ref_browser == "chrome":
-        ref_image = controller.image_chrome
-        com_image = controller.image_firefox
+        controller.ref_screenshot = ChromeScreenshot()
+        controller.com_screenshot = FirefoxScreenshot()
     if ref_browser == "firefox":
-        ref_image = controller.image_firefox
-        com_image = controller.image_chrome
+        controller.ref_screenshot = FirefoxScreenshot()
+        controller.com_screenshot = ChromeScreenshot()
 
     # get screenshots
     controller.get_screenshot(url)
+    controller.set_images()
     # normalize_images
-    controller.normalize_images(ref_image.imagename, com_image.imagename)
+    controller.normalize_images(controller.ref.imagename, controller.com.imagename)
     # start compare process
-    output = controller.compare_linear(
-        ref_image.imagename,
-        com_image.imagename,
-        block_size,
-        algorithm,
-        threshold
-        )
-
-    output_name = "output_lin_{0}_{1}_{2}_{3}.{4}".format(
-        output_id,
-        ref_image.name,
-        com_image.name,
-        algorithm,
-        ref_image.ext
-    )
-    output.save(output_name)
+    output = controller.compare_linear()
 
     print("Eyecathing process completed.")
     output.show()
@@ -124,26 +111,32 @@ def linear(
 @cli.command()
 @click.argument('url')
 @click.option('--threshold',
-            default=8,
-            help="Edge of smallest block size, px. \nLower value means more accurate. Min: 8\n(Default: 8)")
+            default=10,
+            help="Hamming distance or threshold to consider a block dissimilar. \n(Default: 10) \tAvailable: 0 - 63")
 @click.option('--algorithm',
             default="ahash",
             help="Perceptual hashing algorithm to be used. \n(Default: ahash) \nAvailable: ahash, phash, dhash, whash")
 @click.option('--ref-browser',
             default="chrome",
             help="Reference browser \n(Default: chrome) \nAvailable: chrome, firefox")
-@click.option('--output', help="Add an identifier to the output file.")
+@click.option('--output-id',
+            default="_",
+            help="An identifieable name to be added in the output file.")
 @click.option('--width',
             default=1280,
             help="Viewport width, px. \n(Default: 1280)")
+@click.option('--block-size',
+            default=8,
+            help="Smallest block size to reach recursively, px. \nLower value means more accurate but more time consuming. Min: 8\n(Default: 8)")
 @pass_controller
 def recursive(
     controller,
     url,
     algorithm,
     ref_browser,
-    output,
+    output_id,
     threshold,
+    block_size,
     width
     ):
     """
@@ -154,32 +147,32 @@ def recursive(
 
     print('Eyecatching is working....')
 
-    controller.get_screenshot(url)
-
     controller.algorithm = algorithm
+    controller.width = width
+    controller.url = url
+    controller.output_id = output_id
     controller.threshold = threshold
+    controller.block_size = block_size
 
-    # TODO: change Image.open to MetaImage
     if ref_browser == "chrome":
-        controller.ref_image = Image.open(controller.image_chrome.imagename)
-        controller.com_image = Image.open(controller.image_firefox.imagename)
+        controller.ref_screenshot = ChromeScreenshot()
+        controller.com_screenshot = FirefoxScreenshot()
     if ref_browser == "firefox":
-        controller.ref_image = Image.open(controller.image_chrome.imagename)
-        controller.com_image = Image.open(controller.image_firefox.imagename)
+        controller.ref_screenshot = FirefoxScreenshot()
+        controller.com_screenshot = ChromeScreenshot()
 
+    # get screenshots
+    controller.get_screenshot(url)
+    controller.set_images()
+    # normalize_images
+    controller.normalize_images(controller.ref.imagename, controller.com.imagename)
     # Start divide and compare with initial bounding box
-    controller.divide_recursive(controller.ref_image.getbbox(), 0)
+    controller.divide_recursive(controller.ref.image.getbbox(), 0)
 
-    output_name = "output_recursive_{0}_{1}_{2}.{3}".format(
-        controller.image_chrome.name,
-        controller.image_firefox.name,
-        controller.algorithm,
-        controller.image_chrome.ext
-    )
-    controller.save_output(controller.ref_image, output_name)
+    controller.save_output(controller.ref.image, "recursive")
 
     print("Eyecathing process completed.")
-    controller.ref_image.show()
+    controller.ref.image.show()
 
 
 @cli.command()
@@ -213,11 +206,71 @@ def screenshot(
 
     if has_firefox:
         ff = FirefoxScreenshot()
+        ff.width = width
         ff.take_shot(url)
     
     if has_chrome:
         ch = ChromeScreenshot()
-        ch.take_shot_puppeteer(url)
+        ch.width = width
+        ch.take_shot(url)
+
+
+
+@cli.command()
+@click.argument('method')
+@click.argument('image1')
+@click.argument('image2')
+@click.option('--block-size',
+            default=10,
+            help="Tile block size, px. \n(Default: 10)")
+@click.option('--algorithm',
+            default="ahash",
+            help="Perceptual hashing algorithm to be used. \n(Default: ahash) \nAvailable: ahash, phash, dhash, whash")
+@click.option('--output-id',
+            default="_",
+            help="An identifieable name to be added in the output file.")
+@click.option('--threshold',
+            default=10,
+            help="Hamming distance or threshold to consider a block dissimilar. \n(Default: 10) \tAvailable: 0 - 63")
+@pass_controller
+def compare(
+    controller,
+    method,
+    image1,
+    image2,
+    block_size,
+    algorithm,
+    output_id,
+    threshold
+    ):
+    """
+    - Test two images with given method
+    """
+    if block_size < 8:
+        print("Factor is too small! Please use a value above 8")
+        exit()
+
+    print('Eyecatching is working....')
+
+    controller.algorithm = algorithm
+    controller.block_size = block_size
+    controller.output_id = output_id
+    controller.threshold = threshold
+
+    # get screenshots
+    controller.set_images(image1, image2)
+    # normalize_images
+    controller.normalize_images(controller.ref.imagename, controller.com.imagename)
+    # start compare process
+    if method == "linear":
+        output = controller.compare_linear()
+        output.show()
+    if method == "recursive":
+        controller.divide_recursive(controller.ref.image.getbbox(), 0)
+        controller.save_output(controller.ref.image, method)
+        controller.ref.image.show()
+
+    print("Eyecathing process completed.")
 
 
 @cli.command()

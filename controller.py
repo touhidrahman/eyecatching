@@ -14,52 +14,38 @@ from eyecatchingutil import ImageComparator
 
 class Controller:
 
-    outputname = "output.png"
     output_id = "_"
     block_size = 20
     width = 1280
     threshold = 8
     algorithm = "ahash"
-    ref_image = None
-    com_image = None
+    ref = None
+    com = None
+    ref_screenshot = None
+    com_screenshot = None
     url = None
 
     def __init__(self):
-        self.image_chrome = ChromeScreenshot()
-        self.image_firefox = FirefoxScreenshot()
+        self.count = 0 # used for recursive operations
+        pass
 
     def compare_recursive(self, patch_coords):
         """
         Compares two image slice with given coordinates
         """
-        # Methods for selecting given hashing algorithm by switcher
-        switcher = {
-            'ahash': imagehash.average_hash,
-            'phash': imagehash.phash,
-            'dhash': imagehash.dhash,
-            'whash': imagehash.whash,
-        }
+        ref_img_slice = self.ref.get_cropped(patch_coords)
+        com_img_slice = self.com.get_cropped(patch_coords)
 
-        x1, y1, x2, y2 = patch_coords
+        ic = ImageComparator(ref_img_slice, com_img_slice)
+        diff = ic.hamming_diff(self.algorithm)
 
-        ref_img_slice = self.ref_image.crop(patch_coords)
-        com_img_slice = self.com_image.crop(patch_coords)
-
-        hash_a =  switcher[self.algorithm](ref_img_slice)
-        hash_b =  switcher[self.algorithm](com_img_slice)
-        diff =  abs(hash_b - hash_a)
-
-        if diff == 0:
-            # Two images are similar by hash, check their pixel's color
-            color1 = ref_img_slice.getpixel((2,3))
-            color2 = com_img_slice.getpixel((2,3))
-            # Images are similar by hash, but not similar by color
-            if color1 != color2:
-                blend_img = self.blend_image_recursive(self.ref_image, patch_coords, diff)
-                self.ref_image.paste(blend_img, (x1, y1))
-                # Increase dissimilar portion count
-                self.count += 1      
-                return
+        if diff == 0 and ic.is_similar_by_color() == False:
+            patch = self.ref.get_cropped(patch_coords)
+            blended = self.blend_image(patch, diff) #TODO:
+            self.ref.image.paste(blended, patch_coords)
+            # Increase dissimilar portion count
+            self.count += 1
+            return
         else:
             # go inside and compare again
             self.divide_recursive(patch_coords, diff)
@@ -70,10 +56,12 @@ class Controller:
         coords = Coordinates(x1, y1, x2, y2)
 
         # return and save if image is less than 8px
-        if coords.width <= self.threshold or coords.height <= self.threshold:  
-            blend_img = self.blend_image_recursive(self.ref_image, initial_coords, diff)
-            self.ref_image.paste(blend_img, (x1, y1))
-            self.count = self.count+1      
+        if coords.width <= self.block_size or coords.height <= self.block_size:
+            patch = self.ref.get_cropped(initial_coords)
+            opacity = diff / 100 + 0.3 # TODO:
+            blended = self.blend_image(patch, opacity)
+            self.ref.image.paste(blended, initial_coords)
+            self.count += 1      
             return
         # Divide the image with larger side
         else: 
@@ -81,59 +69,75 @@ class Controller:
             self.compare_recursive(coords.second_half())
             return
 
-    def blend_image_recursive(self, orig_image, patch_coords, diff):
-        (x1, y1, x2, y2) = patch_coords
-        # Crop the image with given co-ordinates
-        img_slice = orig_image.crop( (x1, y1, x2, y2) )
-        opacity = diff / 100 + 0.3  # thus it will be 0.3>opacity<0.93
-        img_bottom = img_slice.convert("RGB")
-        img_top = Image.new("RGB", img_slice.size, "salmon")
-        blended_img = Image.blend(img_bottom, img_top, opacity)
-        return blended_img
+    def save_output(self, image_obj:Image.Image, methodname:str):
+        method = methodname[:3]
+        output_name = "output_{0}_{1}_{2}_{3}_{4}.{5}".format(
+            method,
+            self.output_id,
+            self.ref.name,
+            self.com.name,
+            self.algorithm,
+            self.ref.ext
+        )
+        image_obj.save(output_name)
+        print("Done: \tOutput saved as: {0}.".format(output_name))
 
-    def save_output(self, image_obj, name):
-        image_obj.save(name)
-
-    def compare_linear(self, ref_imagename, com_imagename, block_size, algorithm, threshold):
-        ref_image = MetaImage(ref_imagename)
-        com_image = MetaImage(com_imagename)
+    def compare_linear(self):
         counter = 0
         counter_problem = 0
         total_diff = 0
-        edge = int(block_size)
+        edge = int(self.block_size)
 
-        for x in range(0, com_image.width, edge):
-            for y in range(0, com_image.height, edge):
+        for x in range(0, self.com.image.width, edge):
+            for y in range(0, self.com.image.height, edge):
                 coords = (x, y, x + edge, y + edge)
-                ref_tile = ref_image.image.crop(coords)
-                com_tile = com_image.image.crop(coords)
+                ref_tile = self.ref.get_cropped(coords)
+                com_tile = self.com.get_cropped(coords)
                 # compare with ref tile
                 ic = ImageComparator(ref_tile, com_tile)
-                hash_diff =  ic.hash_diff(algorithm)
-                hash_diff_percent = ic.hash_diff_percent(algorithm)
+                hash_diff =  ic.hash_diff(self.algorithm)
+                hash_diff_percent = ic.hash_diff_percent(self.algorithm)
                 # get an opacity value between 0 - 1
                 opacity = hash_diff_percent / 100
 
-                if hash_diff >= threshold:
-                    img_bottom = ref_tile.convert("RGB")
-                    img_top = Image.new("RGB", img_bottom.size, "salmon")
-                    blended = Image.blend(img_bottom, img_top, opacity)
-                    ref_image.image.paste(blended, coords)
+                if hash_diff >= self.threshold:
+                    blended = self.blend_image(ref_tile, opacity)
+                    self.ref.image.paste(blended, coords)
                     counter_problem += 1
 
                 del ref_tile, com_tile
                 total_diff += hash_diff_percent
                 counter += 1
 
+        self.save_output(self.ref.image, "linear")
+
         print("Done: \tTotal blocks compared: {0}.".format(counter))
         print("Done: \tNumber of blocks with dissimilarity: {0}".format(counter_problem))
         print("Done: \tAverage dissimilarity {0:.2f}%.".format(round(total_diff / counter, 2)))
-        # ref_image.image.show()
-        return ref_image.image
+        
+        return self.ref.image
+
+    def blend_image(self, image_obj, opacity, color = "salmon"):
+        img1 = image_obj.convert("RGB")
+        img2 = Image.new("RGB", img1.size, color)
+        return Image.blend(img1, img2, opacity)
 
     def get_screenshot(self, url):
-        self.image_firefox.take_shot(url)
-        self.image_chrome.take_shot_puppeteer(url)
+        self.ref_screenshot.width = self.width
+        self.com_screenshot.width = self.width
+        self.ref_screenshot.take_shot(url)
+        self.com_screenshot.take_shot(url)
+
+    def set_images(self, ref_imagename = None, com_imagename = None):
+        if ref_imagename is None:
+            self.ref = MetaImage(self.ref_screenshot.imagename)
+        else:
+            self.ref = MetaImage(ref_imagename)
+
+        if com_imagename is None:
+            self.com = MetaImage(self.com_screenshot.imagename)
+        else:
+            self.com = MetaImage(com_imagename)
 
     def normalize_images(self, image1, image2):
         """

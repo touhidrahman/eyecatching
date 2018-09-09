@@ -23,6 +23,13 @@ class MetaImage:
     def get_coordinates(self):
         return self.coordinates.as_tuple()
 
+    def get_cropped(self, coordinates):
+        if isinstance(coordinates, Coordinates):
+            coords = coordinates.as_tuple()
+        else:
+            coords = coordinates
+        return self.image.crop(coords)
+
     def left_half(self):
         return self.image.crop(self.coordinates.left_half())
 
@@ -166,6 +173,12 @@ class ImageComparator:
     def hash_diff_percent(self, algorithm = "ahash"):
         return 100 * self.hamming_diff(algorithm) / 64
 
+    def is_similar_by_color(self):
+        # take a random pixel
+        color1 = self.image1.getpixel((2,3))
+        color2 = self.image2.getpixel((2,3))
+        return color1 == color2
+
     def is_similar_a_hash(self):
         return imagehash.average_hash(self.image1) == imagehash.average_hash(self.image2)
 
@@ -266,6 +279,7 @@ class FirefoxScreenshot(BrowserScreenshot):
         Take screenshot using Firefox
         """
         print("Info: \tGetting screenshot from Firefox browser")
+        # add 10 px for scrollbar
         window_size = "--window-size={0}".format(self.width + 10)
         subprocess.call(["firefox",
                         "-screenshot",
@@ -278,11 +292,13 @@ class FirefoxScreenshot(BrowserScreenshot):
         print("Info: \tSaved screenshot from Firefox with name {0}".format(self.imagename))
         print("Info: \tInitial image size: {0} x {1}".format(self.width, self.height))
 
+
+
 class ChromeScreenshot(BrowserScreenshot):
     def __init__(self):
         super().__init__('chrome')
 
-    def take_shot(self, url, height):
+    def take_shot_commandline(self, url, height):
         """
         Take screenshot using Chrome
         """
@@ -300,11 +316,12 @@ class ChromeScreenshot(BrowserScreenshot):
         print("Info: \tSaved screenshot from Chrome with name {0}".format(self.imagename))
         print("Info: \tInitial image size: {0} x {1}".format(self.width, self.height))
 
-    def take_shot_puppeteer(self, url):
+    def take_shot(self, url):
         """
         Take screenshot using Puppeteer
         """
         print("Info: \tGetting screenshot from Chrome browser")
+        # set width to class
         subprocess.call(["node",
                         "puppeteer.js",
                         url,
