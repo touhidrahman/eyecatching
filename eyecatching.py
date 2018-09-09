@@ -38,7 +38,9 @@ def cli(controller):
 def test(controller, image1, image2, edge):
     controller.compare_linear(image1, image2, edge, "ahash", 10)
 
-
+##########################################################################
+#                            LINEAR METHOD                               #
+##########################################################################
 @cli.command()
 @click.argument('url')
 @click.option('--block-size',
@@ -107,7 +109,9 @@ def linear(
     print("Eyecathing process completed.")
     output.show()
 
-
+##########################################################################
+#                         RECURSIVE METHOD                               #
+##########################################################################
 @cli.command()
 @click.argument('url')
 @click.option('--threshold',
@@ -174,7 +178,9 @@ def recursive(
     print("Eyecathing process completed.")
     controller.ref.image.show()
 
-
+##########################################################################
+#                          GET SCREENSHOT                                #
+##########################################################################
 @cli.command()
 @click.argument('url')
 @click.option('--browser',
@@ -214,8 +220,9 @@ def screenshot(
         ch.width = width
         ch.take_shot(url)
 
-
-
+##########################################################################
+#                           MANUAL COMPARE                               #
+##########################################################################
 @cli.command()
 @click.argument('method')
 @click.argument('image1')
@@ -267,13 +274,15 @@ def compare(
         output.show()
     if method == "recursive":
         coords = controller.ref.image.getbbox()
-        controller.divide_recursive(coords, 0)
+        controller.compare_rec(coords, 0)
         controller.save_output(controller.ref.image, method)
         controller.ref.image.show()
 
     print("Eyecathing process completed.")
 
-
+##########################################################################
+#                         NORMALIZE IMAGES                               #
+##########################################################################
 @cli.command()
 @click.argument("image1")
 @click.argument("image2")
@@ -284,6 +293,9 @@ def normalize(controller, image1, image2):
     """
     controller.normalize_images(image1, image2)
 
+##########################################################################
+#                              FIRST RUN                                 #
+##########################################################################
 @cli.command()
 def firstrun():
     """
@@ -293,7 +305,9 @@ def firstrun():
         "npm", "install"
     ])
 
-
+##########################################################################
+#                              RESET COMMAND                             #
+##########################################################################
 @cli.command()
 def reset():
     """

@@ -27,29 +27,42 @@ class Controller:
 
     def __init__(self):
         self.count = 0 # used for recursive operations
-        pass
+        self.paste_coords = []
 
-    def compare_rec(self, coordinates):
+    def compare_rec(self, coordinates, diff):
         l, t, r, b = coordinates
         coords = Coordinates(l, t, r, b)
+        first = coords.first_half()
+        second = coords.second_half()
 
-        if self.divide_rec(coordinates) == False:
-            ref_slice = self.ref.get_cropped(coords.as_tuple())
-            self.blend_image(ref_slice, 0.3) # TODO: change constant
+        if self.count > 0 and diff == 0:
             return
-        else:
-            ref_slice = self.ref.get_cropped(coords.as_tuple())
-            com_slice = self.com.get_cropped(coords.as_tuple())
 
-            ic = ImageComparator(ref_slice, com_slice)
-            diff = ic.hamming_diff(self.algorithm)
-
-            if diff > self.threshold:
-                self.divide_rec(coords.first_half())
-                self.divide_rec(coords.second_half())
-                return
-
+        # initial step, divide first
+        if self.count == 0:  
+            self.compare_rec(first, diff)
+            self.compare_rec(second, diff)
+            self.count += 1
             return
+        # else check if the patch is smaller than block size
+        # and is different
+        if diff > 0 and (coords.width <= self.block_size or coords.height <= self.block_size):
+            self.paste_coords.append(coords.as_tuple())
+            return
+
+        # else go inside and compare
+        ref_slice = self.ref.get_cropped(coords.as_tuple())
+        com_slice = self.com.get_cropped(coords.as_tuple())
+
+        ic = ImageComparator(ref_slice, com_slice)
+        diff = ic.hamming_diff(self.algorithm)
+
+        if diff > 0:
+            self.compare_rec(first, diff)
+            self.compare_rec(second, diff)
+            self.count += 1
+            return
+
 
     def divide_rec(self, coordinates):
         l, t, r, b = coordinates
@@ -66,15 +79,16 @@ class Controller:
         """
         Compares two image slice with given coordinates
         """
-        ref_img_slice = self.ref.get_cropped(patch_coords)
-        com_img_slice = self.com.get_cropped(patch_coords)
+        x1, y1, x2, y2 = patch_coords
+        ref_img_slice = self.ref.image.crop(patch_coords)
+        com_img_slice = self.com.image.crop(patch_coords)
 
         ic = ImageComparator(ref_img_slice, com_img_slice)
         diff = ic.hamming_diff(self.algorithm)
 
-        if diff == 0 and ic.is_similar_by_color() == False:
+        if diff <= self.threshold and ic.is_similar_by_color() == False:
             blended = self.blend_image_recursive(self.ref.image, patch_coords, diff) #TODO:
-            self.ref.image.paste(blended, patch_coords)
+            self.ref.image.paste(blended, (x1, y1))
             # Increase dissimilar portion count
             self.count += 1
             return
@@ -90,8 +104,8 @@ class Controller:
         # return and save if image is less than 8px
         if coords.width <= self.block_size or coords.height <= self.block_size:
             blended = self.blend_image_recursive(self.ref.image, initial_coords, diff)
-            self.ref.image.paste(blended, initial_coords)
-            self.count += 1      
+            self.ref.image.paste(blended, (x1, y1))
+            self.count += 1
             return
         # Divide the image with larger side
         else: 
