@@ -73,8 +73,7 @@ class Controller:
         diff = ic.hamming_diff(self.algorithm)
 
         if diff == 0 and ic.is_similar_by_color() == False:
-            patch = self.ref.get_cropped(patch_coords)
-            blended = self.blend_image(patch, diff) #TODO:
+            blended = self.blend_image_recursive(self.ref.image, patch_coords, diff) #TODO:
             self.ref.image.paste(blended, patch_coords)
             # Increase dissimilar portion count
             self.count += 1
@@ -90,9 +89,7 @@ class Controller:
 
         # return and save if image is less than 8px
         if coords.width <= self.block_size or coords.height <= self.block_size:
-            patch = self.ref.get_cropped(initial_coords)
-            opacity = diff / 100 + 0.3 # TODO:
-            blended = self.blend_image(patch, opacity)
+            blended = self.blend_image_recursive(self.ref.image, initial_coords, diff)
             self.ref.image.paste(blended, initial_coords)
             self.count += 1      
             return
@@ -101,6 +98,14 @@ class Controller:
             self.compare_recursive(coords.first_half())
             self.compare_recursive(coords.second_half())
             return
+
+    def blend_image_recursive(self, image_obj, coords, diff):
+        patch = image_obj.crop(coords)
+        opacity = diff / 100 + 0.3 # TODO:
+        img1 = patch.convert("RGB")
+        img2 = Image.new("RGB", patch.size, "salmon")
+        blended = Image.blend(img1, img2, opacity)
+        return blended
 
     def save_output(self, image_obj:Image.Image, methodname:str):
         method = methodname[:3]
