@@ -11,7 +11,8 @@ setup(
         'Numpy',
         'Scipy',
         'opencv-python',
-        'pandas'
+        'pandas',
+        'imagehash'
     ],
     entry_points='''
         [console_scripts]

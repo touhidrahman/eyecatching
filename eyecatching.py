@@ -44,7 +44,7 @@ def test(controller, image1, image2, edge):
 @cli.command()
 @click.argument('url')
 @click.option('--block-size',
-            default=20,
+            default=10,
             help="Tile block size, px. \n(Default: 20)")
 @click.option('--algorithm',
             default="ahash",
@@ -332,7 +332,10 @@ def reset():
     Remove all input and output files
     """
     for f in os.listdir("."):
-        if f.endswith(".jpg") or f.endswith(".jpeg") or f.endswith(".png"):
+        if (f.endswith(".jpg")
+        or f.endswith(".jpeg")
+        or f.endswith(".png")
+        or f.endswith(".avi")):
             os.remove(f)
             folder = f.split(".")[0]
             if os.path.exists(folder):
