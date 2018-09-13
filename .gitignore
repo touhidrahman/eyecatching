@@ -125,5 +125,9 @@ venv.bak/
 **/*.jpg
 **/*.jpeg
 
+# video files
+**/*.avi
+**/*.mp4
+
 node_modules/
 package-lock.json

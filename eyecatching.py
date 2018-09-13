@@ -285,6 +285,20 @@ def compare(
     print("Eyecathing process completed.")
 
 ##########################################################################
+#                             SHIFT DETECT                               #
+##########################################################################
+@cli.command()
+@click.argument("image1")
+@click.argument("image2")
+@pass_controller
+def shift(controller, image1, image2):
+    """
+    - Detect shift of objects between two images
+    """
+    controller.set_images(image1, image2)
+    controller.detect_shift(image1, image2)
+
+##########################################################################
 #                         NORMALIZE IMAGES                               #
 ##########################################################################
 @cli.command()

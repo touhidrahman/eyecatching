@@ -3,6 +3,8 @@ import os
 import sys
 import shutil
 import imagehash
+import cv2
+import pandas
 from PIL import Image
 from urllib.parse import urlparse
 from eyecatchingutil import MetaImage
@@ -10,7 +12,7 @@ from eyecatchingutil import FirefoxScreenshot
 from eyecatchingutil import ChromeScreenshot
 from eyecatchingutil import Coordinates
 from eyecatchingutil import ImageComparator
-
+from cv2 import VideoWriter, VideoWriter_fourcc, imread, resize
 
 class Controller:
 
@@ -178,3 +180,109 @@ class Controller:
         print("Done: \t{0} and {1} both are now {2}x{3} pixels.".format(
             image1, image2, bigger_wd, bigger_ht
         ))
+
+    def detect_shift(self, image1, image2):
+        """
+        Detect shift of objects between two images
+        """
+        print("Work:\tStarting shift detection process")
+        fourcc = VideoWriter_fourcc(*"XVID")
+        img1 = imread(image1)
+        img2 = imread(image2)
+        size = img1.shape[1], img1.shape[0]
+        output_vid = VideoWriter(
+            "output_vid.avi",
+            fourcc,
+            float(40),
+            size,
+            True
+        )
+        # make 200 frames
+        for i in range(200):   
+            output_vid.write(img1)
+
+        for i in range(200):
+            output_vid.write(img2)
+        
+        output_vid.release()
+
+        first_frame = None
+        last_frame = []
+
+        video = cv2.VideoCapture("output_vid.avi")
+        # -1 absent, 1 present
+        status_list = [-1, -1]
+
+        while True:
+            is_being_read, frame = video.read()
+            is_present = -1
+
+            if is_being_read is True:
+                current_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            else:
+                break
+
+            # remove blur and noise 
+            # kernel size (21, 21), std deviation = 0
+            current_frame = cv2.GaussianBlur(current_frame, (21, 21), 0)
+
+            if first_frame is None:
+                first_frame = current_frame
+                continue
+
+            # get the differences between current and ref frame
+            delta_frame = cv2.absdiff(first_frame, current_frame)
+            # convert background above threshold to white
+            threshold_frame = cv2.threshold(delta_frame, 30, 255, cv2.THRESH_BINARY)[1]
+            # smoothen to remove sharp edges
+            # this frame now holds closed shapes with objects against background
+            threshold_frame = cv2.dilate(threshold_frame, None, iterations = 2)
+
+            (_, contours, _) = cv2.findContours(
+                threshold_frame.copy(),
+                cv2.RETR_EXTERNAL,          # ignore inside contours
+                cv2.CHAIN_APPROX_SIMPLE     # method for locating contours
+            )
+
+            # bigger for big objects, smaller for small
+            # 100 = 10 x 10px
+            shape_size_factor = 100
+            for contour in contours:
+                if cv2.contourArea(contour) < shape_size_factor:
+                    continue
+                
+                is_present = 1
+                # get corresponding bounding for the detected contour
+                (x, y, w, h) = cv2.boundingRect(contour)
+                color = (0, 255, 0)     # green 
+                thickness = 3
+                # draw a rectangle to denote object
+                cv2.rectangle(
+                    frame,
+                    (x, y),
+                    (x + w, y + h),
+                    color,
+                    thickness
+                )
+
+            status_list.append(is_present)
+
+            cv2.imshow("Eyecatching Shift Detect", frame)
+            last_frame = frame
+            # key = cv2.waitkey(1)
+
+        # save output with highlights
+        output_filename = "output_shift_{0}_{1}_{2}.{3}".format(
+            self.output_id,
+            self.ref.name,
+            self.com.name,
+            self.ref.ext
+        )
+        print(output_filename)
+        cv2.imwrite(output_filename,last_frame)
+        cv2.destroyAllWindows()
+        video.release()
+
+        print("Done:\tShift detection process completed")
+        Image.open(output_filename).show()
+
