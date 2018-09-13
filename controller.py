@@ -267,7 +267,7 @@ class Controller:
 
             status_list.append(is_present)
 
-            cv2.imshow("Eyecatching Shift Detect", frame)
+            # cv2.imshow("Eyecatching Shift Detect", frame)
             last_frame = frame
             # key = cv2.waitkey(1)
 

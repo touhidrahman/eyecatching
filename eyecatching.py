@@ -73,7 +73,7 @@ def linear(
     threshold
     ):
     """
-    - Test two screenshots using block comparison
+    Test two screenshots using block comparison
     """
 
     validate_command_inputs(url)
@@ -144,7 +144,7 @@ def recursive(
     width
     ):
     """
-    - Test two screenshots using recursive approach
+    Test two screenshots using recursive approach
     """
 
     validate_command_inputs(url)
@@ -197,7 +197,7 @@ def screenshot(
     browser = "chrome, firefox",
     ):
     """
-    - Get screenshot of the given webpage URL
+    Get screenshot of the given webpage URL
     """
     validate_command_inputs(url)
 
@@ -253,7 +253,7 @@ def compare(
     threshold
     ):
     """
-    - Test two images with given method
+    Test two images with given method
     """
     if block_size < 8:
         print("Factor is too small! Please use a value above 8")
@@ -293,7 +293,7 @@ def compare(
 @pass_controller
 def shift(controller, image1, image2):
     """
-    - Detect shift of objects between two images
+    Detect shift of objects between two images
     """
     controller.set_images(image1, image2)
     controller.detect_shift(image1, image2)
@@ -307,7 +307,7 @@ def shift(controller, image1, image2):
 @pass_controller
 def normalize(controller, image1, image2):
     """
-    - Make 2 images equal height by adding white background to the smaller image
+    Make 2 images equal height by adding white background to the smaller image
     """
     controller.normalize_images(image1, image2)
 
@@ -317,7 +317,7 @@ def normalize(controller, image1, image2):
 @cli.command()
 def firstrun():
     """
-    - Install required dependencies of eyecatching
+    Install required dependencies of eyecatching
     """
     subprocess.call([
         "npm", "install"
@@ -329,7 +329,7 @@ def firstrun():
 @cli.command()
 def reset():
     """
-    - Remove all input and output files
+    Remove all input and output files
     """
     for f in os.listdir("."):
         if f.endswith(".jpg") or f.endswith(".jpeg") or f.endswith(".png"):
