@@ -12,6 +12,8 @@ Only for first time:
 
 `sudo pip install virtualenv` or `sudo easy_install virtualenv` or `sudo apt install python-virtualenv`
 
+`git clone http://github.com/touhidrahman/eyecatching`
+
 `cd eyecatching`
 
 `virtualenv venv`
@@ -39,21 +41,28 @@ You can see help for subcommands using:
 `eyecatching [subcommand] --help`
 
 ## Example:
-Run comparison test using *linear* approach:
+Run comparison test using **linear** approach:
+
 `eyecatching linear http://www.example.com`
 
-Run comparison test using *recursive* approach:
+Run comparison test using **recursive** approach:
+
 `eyecatching recursive http://www.example.com`
 
 Check shifts of objects inside images (alpha):
+
 `eyecatching shift image1.png image2.png`
 
 Compare two images without taking screenshot:
+
 `eyecatching compare linear image1.png image2.png`
+
 `eyecatching compare recursive image1.png image2.png`
 
 Get screenshot for a URL (at present only chrome and firefox):
+
 `eyecatching screenshot http://example.com`
 
 Remove old input/output files:
+
 `eyecatching reset`
