@@ -30,13 +30,6 @@ def cli(controller):
     """
     pass
 
-@cli.command()
-@click.argument('image1')
-@click.argument('image2')
-@click.argument('edge')
-@pass_controller
-def test(controller, image1, image2, edge):
-    controller.compare_linear(image1, image2, edge, "ahash", 10)
 
 ##########################################################################
 #                            LINEAR METHOD                               #
@@ -76,11 +69,10 @@ def linear(
     Test two screenshots using block comparison
     """
 
-    validate_command_inputs(url)
-
-    if block_size < 8:
-        print("Factor is too small! Please use a value above 8")
-        exit()
+    validate_url(url)
+    validate_width(width)
+    validate_block_size(block_size, width)
+    validate_threshold(threshold)
 
     print('Eyecatching is working....')
 
@@ -147,7 +139,10 @@ def recursive(
     Test two screenshots using recursive approach
     """
 
-    validate_command_inputs(url)
+    validate_url(url)
+    validate_width(width)
+    validate_block_size(block_size, width)
+    validate_threshold(threshold)
 
     print('Eyecatching is working....')
 
@@ -199,7 +194,8 @@ def screenshot(
     """
     Get screenshot of the given webpage URL
     """
-    validate_command_inputs(url)
+    validate_url(url)
+    validate_width(width)
 
     if browser != "":
         list = browser.split(",")
@@ -255,9 +251,7 @@ def compare(
     """
     Test two images with given method
     """
-    if block_size < 8:
-        print("Factor is too small! Please use a value above 8")
-        exit()
+    validate_threshold(threshold)
 
     print('Eyecatching is working....')
 
@@ -268,6 +262,9 @@ def compare(
 
     # get screenshots
     controller.set_images(image1, image2)
+
+    validate_block_size(block_size, controller.ref.image.size[0])
+
     # normalize_images
     controller.normalize_images(controller.ref.imagename, controller.com.imagename)
     # start compare process
@@ -351,7 +348,7 @@ def is_valid_url(url):
         return False
 
 
-def validate_command_inputs(url):
+def validate_url(url):
     if url is None:
         print("Argument <URL> missing! Please input a valid URL.")
         exit()
@@ -360,3 +357,41 @@ def validate_command_inputs(url):
         print("Invalid URL! Please input a valid URL.")
         exit()
 
+def validate_width(width):
+    w = int(width) if type(width) is str else width
+        
+    if w < 1:
+        print("Error: \tWidth is too small! Please use a value between 0 - 3000.")
+    elif w > 3000:
+        print("Error: \tWidth is too big! Please use a value between 0 - 3000.")
+    else:
+        return
+
+    print("Error:\tExiting...")
+    exit()
+
+def validate_threshold(threshold):
+    t = int(threshold) if type(threshold) is str else threshold
+
+    if t < 1:
+        print("Error: \tThreshold is too small! Please use a value between 0 - 63")
+    elif t > 3000:
+        print("Error: \tThreshold is too big! Please use a value between 0 - 63")
+    else:
+        return
+
+    print("Error:\tExiting...")
+    exit()
+
+def validate_block_size(value, width):
+    v = int(value) if type(value) is str else value
+
+    if v < 1:
+        print("Error: \tBlock size is too small! Please use a value between 8 - {0}".format(width))
+    elif v > 3000:
+        print("Error: \tBlock size is too big! Please use a value between 8 - {0}".format(width))
+    else:
+        return
+
+    print("Error:\tExiting...")
+    exit()
