@@ -60,6 +60,7 @@ class Controller:
         coords = Coordinates(x1, y1, x2, y2)
 
         # return and save if image is less than 8px
+        # TODO: add diff != 0 and test
         if coords.width <= self.block_size or coords.height <= self.block_size:
             blended = self.blend_image_recursive(self.ref.image, initial_coords, diff)
             self.ref.image.paste(blended, (x1, y1))
