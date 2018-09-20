@@ -4,6 +4,7 @@ import sys
 import shutil
 import imagehash
 import click
+import time
 from PIL import Image
 from urllib.parse import urlparse
 from controller import Controller
@@ -166,14 +167,17 @@ def recursive(
     # normalize_images
     controller.normalize_images(controller.ref.imagename, controller.com.imagename)
     # Start divide and compare with initial bounding box
+    start_time = time.time()
     controller.divide_recursive(controller.ref.image.getbbox(), 0)
+    stop_time = time.time()
 
     controller.save_output(controller.ref.image, "recursive")
     controller.ref.image.show()
     print("Done:\tNumber of blocks dissimilar: {0}".format(controller._rec_count))
     print("Done:\tAverage dissimilarity: {0:.2f}%".format(round(controller._rec_total_diff / controller._rec_count, 2)))
+    print("Done: \tExecution time: {0:.4f} seconds".format(stop_time - start_time))
 
-    print("Eyecathing process completed.")
+
 
 ##########################################################################
 #                          GET SCREENSHOT                                #
@@ -273,11 +277,15 @@ def compare(
         output.show()
     if method == "recursive":
         coords = controller.ref.image.getbbox()
+        start_time = time.time()
         controller.divide_recursive(coords, 0)
         controller.save_output(controller.ref.image, method)
+        stop_time = time.time()
+        
         controller.ref.image.show()
         print("Done:\tNumber of blocks dissimilar: {0}".format(controller._rec_count))
         print("Done:\tAverage dissimilarity: {0:.2f}%".format(round(controller._rec_total_diff / controller._rec_count, 2)))
+        print("Done: \tExecution time: {0:.4f} seconds".format(stop_time - start_time))
 
     print("Eyecathing process completed.")
 
