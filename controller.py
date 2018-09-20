@@ -97,6 +97,11 @@ class Controller:
         print("Done: \tOutput saved as: {0}".format(output_name))
 
     def compare_linear(self):
+        """
+        Compare two images block by block
+        """
+        start_time = time.time()
+
         counter = 0
         counter_problem = 0
         total_diff = 0
@@ -123,11 +128,13 @@ class Controller:
                 total_diff += hash_diff_percent
                 counter += 1
 
+        stop_time = time.time()
         self.save_output(self.ref.image, "linear")
 
         print("Done: \tTotal blocks compared: {0}.".format(counter))
         print("Done: \tNumber of blocks with dissimilarity: {0}".format(counter_problem))
         print("Done: \tAverage dissimilarity {0:.2f}%.".format(round(total_diff / counter, 2)))
+        print("Done: \tExecution time: {0:.4f} seconds".format(stop_time - start_time))
 
         return self.ref.image
 
