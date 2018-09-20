@@ -5,6 +5,8 @@ import shutil
 import imagehash
 import cv2
 import pandas
+import time
+import numpy as np
 from PIL import Image
 from urllib.parse import urlparse
 from eyecatchingutil import MetaImage
@@ -198,21 +200,51 @@ class Controller:
             size,
             True
         )
-        # make 200 frames
-        for i in range(200):   
-            output_vid.write(img1)
+        # make a white image for comparing
+        img_white = np.zeros((size[1], size[0], 3), np.uint8)
+        img_white.fill(255)
 
-        for i in range(200):
-            output_vid.write(img2)
+        start_time = time.time()
+
+        # add frames to output video
+        output_vid.write(img_white)
+        output_vid.write(img1)
+        output_vid.write(img2)
+        output_vid.write(img1)
         
         output_vid.release()
 
         first_frame = None
-        last_frame = []
 
         video = cv2.VideoCapture("output_vid.avi")
-        # -1 absent, 1 present
-        status_list = [-1, -1]
+        count = 1
+        objects_ref = []
+        objects_com = []
+
+        def draw_rectangles(frame, is_ref_image):
+            color_red = (0, 0, 255)
+            color_green = (0, 255, 0)
+            if is_ref_image:
+                for i in objects_ref:
+                    (x, y, w, h) = i
+                    cv2.rectangle(
+                        frame,
+                        (x, y),
+                        (x + w, y + h),
+                        color_red,
+                        2               # strokes
+                    )
+            else:
+                for i in objects_com:
+                    (x, y, w, h) = i
+                    cv2.rectangle(
+                        frame,
+                        (x, y),
+                        (x + w, y + h),
+                        color_green,
+                        2               # strokes
+                    )
+            return frame
 
         while True:
             is_being_read, frame = video.read()
@@ -255,35 +287,43 @@ class Controller:
                 is_present = 1
                 # get corresponding bounding for the detected contour
                 (x, y, w, h) = cv2.boundingRect(contour)
-                color = (0, 255, 0)     # green 
-                thickness = 3
-                # draw a rectangle to denote object
-                cv2.rectangle(
-                    frame,
-                    (x, y),
-                    (x + w, y + h),
-                    color,
-                    thickness
+                if count == 1:
+                    objects_ref.append((x, y, w, h))
+                elif count == 2:
+                    objects_com.append((x, y, w, h))
+            
+            if count == 1:
+                frame = draw_rectangles(frame, True)
+                output_filename = "output_struct_{0}_{1}.{2}".format(
+                    self.output_id,
+                    self.ref.name,
+                    self.ref.ext
+                )
+            elif count == 2:
+                frame = draw_rectangles(frame, False)
+                output_filename = "output_struct_{0}_{1}.{2}".format(
+                    self.output_id,
+                    self.com.name,
+                    self.ref.ext
+                )
+            elif count == 3:
+                # green on top
+                frame = draw_rectangles(frame, True)
+                frame = draw_rectangles(frame, False)
+                output_filename = "output_shift_{0}_{1}_{2}.{3}".format(
+                    self.output_id,
+                    self.ref.name,
+                    self.com.name,
+                    self.ref.ext
                 )
 
-            status_list.append(is_present)
+            cv2.imwrite(output_filename, frame)
+            count += 1
 
-            # cv2.imshow("Eyecatching Shift Detect", frame)
-            last_frame = frame
-            # key = cv2.waitkey(1)
-
-        # save output with highlights
-        output_filename = "output_shift_{0}_{1}_{2}.{3}".format(
-            self.output_id,
-            self.ref.name,
-            self.com.name,
-            self.ref.ext
-        )
-        print(output_filename)
-        cv2.imwrite(output_filename,last_frame)
         cv2.destroyAllWindows()
         video.release()
+        stop_time = time.time()
 
         print("Done:\tShift detection process completed")
-        Image.open(output_filename).show()
+        print("Done:\tExecution time: {0:.4f} seconds".format(stop_time - start_time))
 
