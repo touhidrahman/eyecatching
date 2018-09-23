@@ -176,8 +176,8 @@ class ImageComparator:
 
     def is_similar_by_color(self):
         # take a random pixel
-        color1 = self.image1.getpixel((2,3))
-        color2 = self.image2.getpixel((2,3))
+        color1 = self.image1.getpixel((1, 1))
+        color2 = self.image2.getpixel((1, 1))
         return color1 == color2
 
     def is_similar_a_hash(self):

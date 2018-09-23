@@ -18,70 +18,71 @@ from cv2 import VideoWriter, VideoWriter_fourcc, imread, resize
 
 class Controller:
 
-    output_id = "_"
-    block_size = 20
-    width = 1280
-    threshold = 8
-    algorithm = "ahash"
-    ref = None
-    com = None
-    ref_screenshot = None
-    com_screenshot = None
-    url = None
+    output_id      = "_"
+    block_size     = 20
+    width          = 1280
+    threshold      = 8
+    algorithm      = "ahash"
+    ref            = None       # MetaImage
+    com            = None       # MetaImage
+    ref_screenshot = None       # BrowserScreenshot
+    com_screenshot = None       # BrowserScreenshot
+    url            = None
 
-    def __init__(self):
-        # used for recursive operations
+    def recursive(self, image1 = None, image2 = None):
+        self.normalize_images(image1, image2)
+        self.set_images(image1, image2)
         self._rec_count = 0
         self._rec_total_diff = 0
+        start_time = time.time()
+        self.divide_recursive(self.ref.coordinates.as_tuple(), 0)
+        stop_time = time.time()
+
+        output_filename = self.save_output(self.ref.image, "recursive")
+
+        print("Done:\tNumber of blocks dissimilar: {0}".format(self._rec_count))
+        print("Done:\tAverage dissimilarity: {0:.2f}%".format(round(self._rec_total_diff / self._rec_count, 2)))
+        print("Done: \tExecution time: {0:.4f} seconds".format(stop_time - start_time))
+
+        return Image.open(output_filename)
 
     def compare_recursive(self, patch_coords):
         """
         Compares two image slice with given coordinates
         """
-        x1, y1, x2, y2 = patch_coords
         ref_img_slice = self.ref.image.crop(patch_coords)
         com_img_slice = self.com.image.crop(patch_coords)
-
         ic = ImageComparator(ref_img_slice, com_img_slice)
         diff = ic.hamming_diff(self.algorithm)
 
-        if diff <= self.threshold and ic.is_similar_by_color() == False:
-            blended = self.blend_image_recursive(self.ref.image, patch_coords, diff)
-            self.ref.image.paste(blended, (x1, y1))
-            # Increase dissimilar portion count
+        if diff == 0 and ic.is_similar_by_color() == False:
+            patch = self.ref.image.crop(patch_coords)
+            opacity = round((100 * float(diff) / 64) / 100, 1)
+            blended = self.blend_image(patch, opacity)
+            self.ref.image.paste(blended, patch_coords)
             self._rec_count += 1
             self._rec_total_diff += diff
-            return
         else:
-            # go inside and compare again
             self.divide_recursive(patch_coords, diff)
-            return
+
+
 
     def divide_recursive(self, initial_coords, diff):
         (x1, y1, x2, y2) = initial_coords
         coords = Coordinates(x1, y1, x2, y2)
 
-        # return and save if image is less than 8px
-        # TODO: add diff != 0 and test
+        # return and save if image is less than block size
         if (coords.width <= self.block_size or coords.height <= self.block_size) and diff != 0:
-            blended = self.blend_image_recursive(self.ref.image, initial_coords, diff)
+            patch = self.ref.image.crop(initial_coords)
+            opacity = round((100 * float(diff) / 64) / 100, 1)
+            blended = self.blend_image(patch, opacity)
             self.ref.image.paste(blended, (x1, y1))
             self._rec_count += 1
             self._rec_total_diff += diff
-            return
         # Divide the image with larger side
         else:
             self.compare_recursive(coords.first_half())
             self.compare_recursive(coords.second_half())
-            return
-
-    def blend_image_recursive(self, image_obj, coords, diff):
-        patch = image_obj.crop(coords)
-        opacity = (100 * diff / 64) / 100 if diff != 0 else 0
-        img1 = patch.convert("RGB")
-        img2 = Image.new("RGB", patch.size, "salmon")
-        blended = Image.blend(img1, img2, opacity)
-        return blended
 
     def save_output(self, image_obj:Image.Image, methodname:str):
         method = methodname[:3]
@@ -95,6 +96,12 @@ class Controller:
         )
         image_obj.save(output_name)
         print("Done: \tOutput saved as: {0}".format(output_name))
+        return output_name
+
+    def linear(self, image1 = None, image2 = None):
+        self.normalize_images(image1, image2)
+        self.set_images(image1, image2)
+        return self.compare_linear()
 
     def compare_linear(self):
         """
@@ -195,17 +202,20 @@ class Controller:
         """
         Detect shift of objects between two images
         """
+        self.normalize_images(image1, image2)
+        self.set_images(image1, image2)
+
         print("Work:\tStarting shift detection process")
         fourcc = VideoWriter_fourcc(*"XVID")
         img1 = imread(image1)
         img2 = imread(image2)
         size = img1.shape[1], img1.shape[0]
         output_vid = VideoWriter(
-            "output_vid.avi",
-            fourcc,
-            float(40),
-            size,
-            True
+            "output_vid.avi",       # output_filename
+            fourcc,                 # codec
+            float(40),              # fps
+            size,                   # framesize
+            True                    # write color frames
         )
         # make a white image for comparing
         img_white = np.zeros((size[1], size[0], 3), np.uint8)
@@ -224,7 +234,7 @@ class Controller:
         first_frame = None
 
         video = cv2.VideoCapture("output_vid.avi")
-        count = 1
+        step = 1
         objects_ref = []
         objects_com = []
 
@@ -255,7 +265,6 @@ class Controller:
 
         while True:
             is_being_read, frame = video.read()
-            is_present = -1
 
             if is_being_read is True:
                 current_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -291,29 +300,28 @@ class Controller:
                 if cv2.contourArea(contour) < shape_size_factor:
                     continue
                 
-                is_present = 1
                 # get corresponding bounding for the detected contour
                 (x, y, w, h) = cv2.boundingRect(contour)
-                if count == 1:
+                if step == 1:
                     objects_ref.append((x, y, w, h))
-                elif count == 2:
+                elif step == 2:
                     objects_com.append((x, y, w, h))
             
-            if count == 1:
+            if step == 1:
                 frame = draw_rectangles(frame, True)
                 output_filename = "output_struct_{0}_{1}.{2}".format(
                     self.output_id,
                     self.ref.name,
                     self.ref.ext
                 )
-            elif count == 2:
+            elif step == 2:
                 frame = draw_rectangles(frame, False)
                 output_filename = "output_struct_{0}_{1}.{2}".format(
                     self.output_id,
                     self.com.name,
                     self.ref.ext
                 )
-            elif count == 3:
+            elif step == 3:
                 # green on top
                 frame = draw_rectangles(frame, True)
                 frame = draw_rectangles(frame, False)
@@ -325,7 +333,7 @@ class Controller:
                 )
 
             cv2.imwrite(output_filename, frame)
-            count += 1
+            step += 1
 
         cv2.destroyAllWindows()
         video.release()
@@ -333,4 +341,5 @@ class Controller:
 
         print("Done:\tShift detection process completed")
         print("Done:\tExecution time: {0:.4f} seconds".format(stop_time - start_time))
+        return Image.open(output_filename)
 

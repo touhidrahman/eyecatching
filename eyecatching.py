@@ -93,11 +93,11 @@ def linear(
 
     # get screenshots
     controller.get_screenshot(url)
-    controller.set_images()
-    # normalize_images
-    controller.normalize_images(controller.ref.imagename, controller.com.imagename)
     # start compare process
-    output = controller.compare_linear()
+    output = controller.linear(
+        controller.ref_screenshot.imagename,
+        controller.com_screenshot.imagename,
+    )
 
     print("Eyecathing process completed.")
     output.show()
@@ -163,19 +163,14 @@ def recursive(
 
     # get screenshots
     controller.get_screenshot(url)
-    controller.set_images()
-    # normalize_images
-    controller.normalize_images(controller.ref.imagename, controller.com.imagename)
-    # Start divide and compare with initial bounding box
-    start_time = time.time()
-    controller.divide_recursive(controller.ref.image.getbbox(), 0)
-    stop_time = time.time()
+    output = controller.recursive(
+        controller.ref_screenshot.imagename,
+        controller.com_screenshot.imagename,
+    )
 
-    controller.save_output(controller.ref.image, "recursive")
-    controller.ref.image.show()
-    print("Done:\tNumber of blocks dissimilar: {0}".format(controller._rec_count))
-    print("Done:\tAverage dissimilarity: {0:.2f}%".format(round(controller._rec_total_diff / controller._rec_count, 2)))
-    print("Done: \tExecution time: {0:.4f} seconds".format(stop_time - start_time))
+    output.show()
+
+    print("Eyecathing process completed.")
 
 
 
@@ -256,36 +251,22 @@ def compare(
     Test two images with given method
     """
     validate_threshold(threshold)
-
+    validate_block_size(block_size, Image.open(image1).width)
+    
     print('Eyecatching is working....')
 
     controller.algorithm = algorithm
-    controller.block_size = block_size
     controller.output_id = output_id
     controller.threshold = threshold
+    controller.block_size = block_size
 
-    # get screenshots
-    controller.set_images(image1, image2)
-
-    validate_block_size(block_size, controller.ref.image.size[0])
-
-    # normalize_images
-    controller.normalize_images(controller.ref.imagename, controller.com.imagename)
     # start compare process
     if method == "linear":
-        output = controller.compare_linear()
-        output.show()
+        output = controller.linear()
     if method == "recursive":
-        coords = controller.ref.image.getbbox()
-        start_time = time.time()
-        controller.divide_recursive(coords, 0)
-        controller.save_output(controller.ref.image, method)
-        stop_time = time.time()
+        output = controller.recursive(image1, image2)
         
-        controller.ref.image.show()
-        print("Done:\tNumber of blocks dissimilar: {0}".format(controller._rec_count))
-        print("Done:\tAverage dissimilarity: {0:.2f}%".format(round(controller._rec_total_diff / controller._rec_count, 2)))
-        print("Done: \tExecution time: {0:.4f} seconds".format(stop_time - start_time))
+    output.show()
 
     print("Eyecathing process completed.")
 
@@ -300,8 +281,8 @@ def shift(controller, image1, image2):
     """
     Detect shift of objects between two images
     """
-    controller.set_images(image1, image2)
-    controller.detect_shift(image1, image2)
+    output = controller.detect_shift(image1, image2)
+    output.show()
 
 ##########################################################################
 #                         NORMALIZE IMAGES                               #
