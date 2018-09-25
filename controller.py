@@ -55,7 +55,7 @@ class Controller:
         ic = ImageComparator(ref_img_slice, com_img_slice)
         diff = ic.hamming_diff(self.algorithm)
 
-        if diff == 0 and ic.is_similar_by_color() == False:
+        if diff == 0:
             patch = self.ref.image.crop(patch_coords)
             opacity = round((100 * float(diff) / 64) / 100, 1)
             blended = self.blend_image(patch, opacity)

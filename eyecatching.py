@@ -262,7 +262,7 @@ def compare(
 
     # start compare process
     if method == "linear":
-        output = controller.linear()
+        output = controller.linear(image1, image2)
     if method == "recursive":
         output = controller.recursive(image1, image2)
         
