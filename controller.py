@@ -127,7 +127,7 @@ class Controller:
                 hash_diff =  ic.hash_diff(self.algorithm)
                 hash_diff_percent = ic.hash_diff_percent(self.algorithm)
                 # get an opacity value between 0 - 1
-                opacity = hash_diff_percent / 100
+                opacity = float(hash_diff_percent) / 100
 
                 if hash_diff >= self.threshold:
                     blended = self.blend_image(ref_tile, opacity)
