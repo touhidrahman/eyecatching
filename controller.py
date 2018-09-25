@@ -34,14 +34,17 @@ class Controller:
         self.set_images(image1, image2)
         self._rec_count = 0
         self._rec_total_diff = 0
+        self._rec_total_area_marked = 0
         start_time = time.time()
         self.divide_recursive(self.ref.coordinates.as_tuple(), 0)
         stop_time = time.time()
 
         output_filename = self.save_output(self.ref.image, "recursive")
 
-        print("Done:\tNumber of blocks dissimilar: {0}".format(self._rec_count))
         print("Done:\tAverage dissimilarity: {0:.2f}%".format(round(self._rec_total_diff / self._rec_count, 2)))
+        print("Done: \tDissimilar area: {0:.2f}%".format(
+            100 * self._rec_total_area_marked / self.ref.coordinates.get_area()
+        ))
         print("Done: \tExecution time: {0:.4f} seconds".format(stop_time - start_time))
 
         return Image.open(output_filename)
@@ -55,17 +58,8 @@ class Controller:
         ic = ImageComparator(ref_img_slice, com_img_slice)
         diff = ic.hamming_diff(self.algorithm)
 
-        if diff == 0:
-            patch = self.ref.image.crop(patch_coords)
-            opacity = round((100 * float(diff) / 64) / 100, 1)
-            blended = self.blend_image(patch, opacity)
-            self.ref.image.paste(blended, patch_coords)
-            self._rec_count += 1
-            self._rec_total_diff += diff
-        else:
+        if diff > 0:
             self.divide_recursive(patch_coords, diff)
-
-
 
     def divide_recursive(self, initial_coords, diff):
         (x1, y1, x2, y2) = initial_coords
@@ -73,16 +67,22 @@ class Controller:
 
         # return and save if image is less than block size
         if (coords.width <= self.block_size or coords.height <= self.block_size) and diff != 0:
-            patch = self.ref.image.crop(initial_coords)
-            opacity = round((100 * float(diff) / 64) / 100, 1)
-            blended = self.blend_image(patch, opacity)
-            self.ref.image.paste(blended, (x1, y1))
-            self._rec_count += 1
-            self._rec_total_diff += diff
+            self.mark_image_recursive(initial_coords, diff)
         # Divide the image with larger side
         else:
             self.compare_recursive(coords.first_half())
             self.compare_recursive(coords.second_half())
+
+    def mark_image_recursive(self, patch_coords, diff):
+        (x1, y1, x2, y2) = patch_coords
+        coords = Coordinates(x1, y1, x2, y2)
+        patch = self.ref.image.crop(patch_coords)
+        opacity = round((100 * float(diff) / 64) / 100, 1)
+        blended = self.blend_image(patch, opacity)
+        self.ref.image.paste(blended, patch_coords)
+        self._rec_count += 1
+        self._rec_total_diff += opacity * 100
+        self._rec_total_area_marked += coords.get_area()
 
     def save_output(self, image_obj:Image.Image, methodname:str):
         method = methodname[:3]
@@ -112,11 +112,13 @@ class Controller:
         counter = 0
         counter_problem = 0
         total_diff = 0
+        dissimilar_area = 0
         edge = int(self.block_size)
 
         for x in range(0, self.com.image.width, edge):
             for y in range(0, self.com.image.height, edge):
                 coords = (x, y, x + edge, y + edge)
+                _coords_obj = Coordinates(x, y, x + edge, y + edge)
                 ref_tile = self.ref.get_cropped(coords)
                 com_tile = self.com.get_cropped(coords)
                 # compare with ref tile
@@ -130,6 +132,7 @@ class Controller:
                     blended = self.blend_image(ref_tile, opacity)
                     self.ref.image.paste(blended, coords)
                     counter_problem += 1
+                    dissimilar_area += _coords_obj.get_area()
 
                 del ref_tile, com_tile
                 total_diff += hash_diff_percent
@@ -141,6 +144,9 @@ class Controller:
         print("Done: \tTotal blocks compared: {0}.".format(counter))
         print("Done: \tNumber of blocks with dissimilarity: {0}".format(counter_problem))
         print("Done: \tAverage dissimilarity {0:.2f}%.".format(round(total_diff / counter, 2)))
+        print("Done: \tDissimilar area: {0:.2f}%".format(
+            100 * dissimilar_area / self.ref.coordinates.get_area()
+        ))
         print("Done: \tExecution time: {0:.4f} seconds".format(stop_time - start_time))
 
         return self.ref.image

@@ -88,6 +88,9 @@ class Coordinates:
             self.x2, self.y2
         )
 
+    def get_area(self):
+        return self.width * self. height
+
     def add_to_right(self, pixels: int):
         return (
             self.x1,            self.y1,
