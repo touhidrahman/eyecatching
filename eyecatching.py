@@ -276,11 +276,15 @@ def compare(
 @cli.command()
 @click.argument("image1")
 @click.argument("image2")
+@click.option('--output-id',
+            default="_",
+            help="An identifieable name to be added in the output file.")
 @pass_controller
-def shift(controller, image1, image2):
+def shift(controller, image1, image2, output_id):
     """
     Detect shift of objects between two images
     """
+    controller.output_id = output_id
     output = controller.detect_shift(image1, image2)
     output.show()
 
