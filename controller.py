@@ -41,7 +41,8 @@ class Controller:
 
         output_filename = self.save_output(self.ref.image, "recursive")
 
-        print("Done:\tAverage dissimilarity: {0:.2f}%".format(round(self._rec_total_diff / self._rec_count, 2)))
+        avg_dissimilarity = round(self._rec_total_diff / self._rec_count, 2) if self._rec_count != 0 else 0
+        print("Done:\tAverage dissimilarity: {0:.2f}%".format(avg_dissimilarity))
         print("Done: \tDissimilar area: {0:.2f}%".format(
             100 * self._rec_total_area_marked / self.ref.coordinates.get_area()
         ))
