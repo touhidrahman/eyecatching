@@ -5,6 +5,7 @@ Python CLI tool to compare webapp frontend using Perceptual Image Hashing
 * Linux OS (tested in Ubuntu, should work in other distro)
 * Firefox
 * Chrome
+* Node.js & NPM
 
 ## Installation and Setup
 
