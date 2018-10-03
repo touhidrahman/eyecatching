@@ -17,13 +17,13 @@ Only for first time:
 
 `cd eyecatching`
 
-`virtualenv venv`
+`virtualenv -p python3 venv`
 
-`. venv/bin/activate`
+`source venv/bin/activate`
 
 `pip install --editable .`
 
-`eyecatching firstrun`
+`eyecatching firstrun` or `npm install`
 
 ## Run eyecatching
 
@@ -40,6 +40,11 @@ List of commands you can use:
 You can see help for subcommands using:
 
 `eyecatching [subcommand] --help`
+
+You can use short `ec` instead of `eyecatching`:
+
+`ec --help`
+
 
 ## Example:
 Run comparison test using **linear** approach:

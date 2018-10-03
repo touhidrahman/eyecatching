@@ -16,6 +16,7 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-        eyecatching=eyecatching:cli 
+        eyecatching=eyecatching:cli
+        ec=eyecatching:cli
     ''',
 )
