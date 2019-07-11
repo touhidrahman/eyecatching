@@ -124,6 +124,7 @@ venv.bak/
 **/*.png
 **/*.jpg
 **/*.jpeg
+!_readme_images/*.png
 
 # video files
 **/*.avi
