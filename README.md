@@ -1,5 +1,22 @@
-# eyecatching
-Python CLI tool to compare webapp frontend using Perceptual Image Hashing
+# Introduction
+Python CLI tool to compare webapp frontend using Perceptual Image Hashing.
+
+When you load same page in two different browser (e.g- Chrome and Firefox), you do not see any major visual dissimilarity. But there might be some minor visual differences that human eyes cannot identify. This tool helps finding those problems.
+
+For example, below are the screenshots of a webpage in Chrome and Firefox:
+
+Chrome             |  Firefox
+:-------------------------:|:-------------------------:
+![chrome](_readme_images/chrome.png)  |  ![firefox](_readme_images/firefox.png)
+
+You probably don't see much of a difference. But when analyzed with eyecatching, you can see some with markings.
+
+Visual difference between Chrome and Firefox screenshot using one of the Perceptual Image Hashing method:
+![output_rec_hsfulda_chrome_firefox_dhash](_readme_images/output_rec_hsfulda_chrome_firefox_dhash.png)
+
+
+Positional differences of DOM elements in two separate browser (overlayed for brevity, Green boundaries belong to the reference image and red to comparable):
+![output_shift_hsfulda_chrome_firefox](_readme_images/output_shift_hsfulda_chrome_firefox.png)
 
 ## Prerequisite
 * Linux OS (tested in Ubuntu, should work in other distro)
